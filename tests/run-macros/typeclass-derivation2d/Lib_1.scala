@@ -1,6 +1,8 @@
 import scala.collection.mutable
 import scala.annotation.tailrec
 
+import scala.quoted._
+
 // Simulation of an alternative typeclass derivation scheme
 
 // -- Classes and Objects of the Derivation Framework ----------------------------------
@@ -81,32 +83,59 @@ trait Eq[T] {
 object Eq {
   import scala.compiletime.{erasedValue, summonFrom}
 
-  inline def tryEql[T](x: T, y: T) = summonFrom {
-    case eq: Eq[T] => eq.eql(x, y)
+  inline def tryEql[T](x: T, y: T) =
+    ${ tryEqlExpr('x, 'y) }
+
+  private def tryEqlExpr[T: Type](x: Expr[T], y: Expr[T])(using qctx: QuoteContext): Expr[Boolean] = {
+    summonExpr[Eq[T]] match {
+      case Some(eq) => '{ $eq.eql($x, $y) }
+      case None =>
+        qctx.error(s"Could not find delegate for Eq[${summon[Type[T]].show}]")
+        '{ false }
+    }
   }
 
   inline def eqlElems[Elems <: Tuple](n: Int)(x: Any, y: Any): Boolean =
-    inline erasedValue[Elems] match {
-      case _: (elem *: elems1) =>
-        tryEql[elem](productElement[elem](x, n), productElement[elem](y, n)) &&
-        eqlElems[elems1](n + 1)(x, y)
-      case _: Unit =>
-        true
+    ${ eqlElemsExpr[Elems]('n)('x, 'y) }
+
+  private def eqlElemsExpr[Elems <: Tuple](n: Expr[Int])(x: Expr[Any], y: Expr[Any])(using Type[Elems])(using QuoteContext): Expr[Boolean] =
+    '{ ??? : Elems } match {
+      case '{ type $elems1 <: Tuple; $_ : ($elem *: `$elems1`) } =>
+        '{
+          ${ tryEqlExpr('{ productElement[$elem]($x, $n) }, '{ productElement[$elem]($y, $n) })(using elem, summon) } &&
+          ${ eqlElemsExpr('{ $n + 1})(x, y)(using elems1) }
+        }
+      case '{ $_ : Unit } =>
+        '{true}
     }
 
   inline def eqlProduct[T](m: Mirror.ProductOf[T])(x: Any, y: Any): Boolean =
     eqlElems[m.ElemTypes](0)(x, y)
 
-  inline def eqlCases[Alts](n: Int)(x: Any, y: Any, ord: Int): Boolean =
-    inline erasedValue[Alts] match {
-      case _: (alt *: alts1) =>
-        if (ord == n)
-          summonFrom {
-            case m: Mirror.ProductOf[`alt`] => eqlElems[m.ElemTypes](0)(x, y)
-          }
-        else eqlCases[alts1](n + 1)(x, y, ord)
-      case _: Unit =>
-        false
+  inline def eqlCases[Alts](inline n: Int)(x: Any, y: Any, ord: Int): Boolean =
+    ${ eqlCasesExpr[Alts]('n)('x, 'y, 'ord) }
+
+  def eqlCasesExpr[Alts](n: Expr[Int])(x: Expr[Any], y: Expr[Any], ord: Expr[Int])(using Type[Alts])(using qctx: QuoteContext): Expr[Boolean] =
+    '{ ??? : Alts } match {
+      case '{ $_ : ($alt *: $alts1) } =>
+        '{
+          if ($ord == $n)
+            ${
+              summonExpr(using '[Mirror.ProductOf[$alt]]) match {
+                case Some('{ $mm: $tt }) =>
+                  '{
+                    val m = $mm
+                    type ET = m.ElemTypes
+                    ${ eqlElemsExpr[ET](Expr(0))(x, y)(using '[ET]) }
+                  }
+                case _ =>
+                  qctx.throwError(s"Could not find given for ProductOf[${alt.show}]")
+              }
+            }
+          else ${ eqlCasesExpr(Expr(n.value + 1))(x, y, ord)(using alts1) }
+        }
+      case '{ $x: Unit } =>
+        '{ false }
     }
 
   inline def derived[T](implicit ev: Mirror.Of[T]): Eq[T] = new Eq[T] {
@@ -137,16 +166,30 @@ object Pickler {
 
   def nextInt(buf: mutable.ListBuffer[Int]): Int = try buf.head finally buf.trimStart(1)
 
-  inline def tryPickle[T](buf: mutable.ListBuffer[Int], x: T): Unit = summonFrom {
-    case pkl: Pickler[T] => pkl.pickle(buf, x)
+  inline def tryPickle[T](buf: mutable.ListBuffer[Int], x: T): Unit =
+    ${ tryPickleExpr('buf, 'x) }
+
+  private def tryPickleExpr[T: Type](buf: Expr[mutable.ListBuffer[Int]], x: Expr[T])(using qctx: QuoteContext): Expr[Unit] = {
+    summonExpr[Pickler[T]] match {
+      case Some(pkl) => '{ $pkl.pickle($buf, $x) }
+      case None =>
+        qctx.error(s"Could not find delegate for Pickler[${summon[Type[T]].show}]")
+        '{}
+    }
   }
 
   inline def pickleElems[Elems <: Tuple](n: Int)(buf: mutable.ListBuffer[Int], x: Any): Unit =
-    inline erasedValue[Elems] match {
-      case _: (elem *: elems1) =>
-        tryPickle[elem](buf, productElement[elem](x, n))
-        pickleElems[elems1](n + 1)(buf, x)
-      case _: Unit =>
+    ${ pickleElemsExpr[Elems]('n)('buf, 'x) }
+
+  def pickleElemsExpr[Elems <: Tuple : Type](n: Expr[Int])(buf: Expr[mutable.ListBuffer[Int]], x: Expr[Any])(using QuoteContext): Expr[Unit] =
+    '{ ??? : Elems } match {
+      case '{ type $elems1 <: Tuple; $_ : ($elem *: `$elems1`) } =>
+        '{
+          ${ tryPickleExpr(buf,  '{ productElement[$elem]($x, $n) })(using elem, summon) }
+          ${ pickleElemsExpr('{$n + 1})(buf, x)(using elems1, summon) }
+        }
+      case '{ $_ : Unit } =>
+        '{}
     }
 
   inline def pickleCases[Alts <: Tuple](n: Int)(buf: mutable.ListBuffer[Int], x: Any, ord: Int): Unit =
@@ -160,16 +203,30 @@ object Pickler {
       case _: Unit =>
     }
 
-  inline def tryUnpickle[T](buf: mutable.ListBuffer[Int]): T = summonFrom {
-    case pkl: Pickler[T] => pkl.unpickle(buf)
+  inline def tryUnpickle[T](buf: mutable.ListBuffer[Int]): T =
+    ${ tryUnpickleExpr[T]('buf) }
+
+  private def tryUnpickleExpr[T: Type](buf: Expr[mutable.ListBuffer[Int]])(using qctx: QuoteContext): Expr[T] = {
+    summonExpr[Pickler[T]] match {
+      case Some(pkl) => '{ $pkl.unpickle($buf) }
+      case None =>
+        qctx.error(s"Could not find delegate for Pickler[${summon[Type[T]].show}]")
+        '{ ??? }
+    }
   }
 
   inline def unpickleElems[Elems <: Tuple](n: Int)(buf: mutable.ListBuffer[Int], elems: ArrayProduct): Unit =
-    inline erasedValue[Elems] match {
-      case _: (elem *: elems1) =>
-        elems(n) = tryUnpickle[elem](buf).asInstanceOf[AnyRef]
-        unpickleElems[elems1](n + 1)(buf, elems)
-      case _: Unit =>
+    ${ unpickleElemsExpr[Elems]('n)('buf, 'elems) }
+
+  private def unpickleElemsExpr[Elems <: Tuple : Type](n: Expr[Int])(buf: Expr[mutable.ListBuffer[Int]], elems: Expr[ArrayProduct])(using QuoteContext): Expr[Unit] =
+    '{ ??? : Elems } match {
+      case '{ type $elems1 <: Tuple; $_ : ($elem *: `$elems1`) } =>
+        '{
+          $elems.update($n, ${ tryUnpickleExpr(buf)(using elem, summon) }.asInstanceOf[AnyRef])
+          ${ unpickleElemsExpr('{$n + 1})(buf, elems)(using elems1, summon) }
+        }
+      case '{ $_ : Unit } =>
+        '{}
     }
 
   inline def unpickleCase[T, Elems <: Tuple](buf: mutable.ListBuffer[Int], m: Mirror.ProductOf[T]): T = {
@@ -230,22 +287,36 @@ trait Show[T] {
 object Show {
   import scala.compiletime.{erasedValue, constValue, summonFrom}
 
-  inline def tryShow[T](x: T): String = summonFrom {
-    case s: Show[T] => s.show(x)
+  inline def tryShow[T](x: T): String =
+    ${ tryShowExpr('x) }
+
+  private def tryShowExpr[T: Type](x: Expr[T])(using qctx: QuoteContext): Expr[String] = {
+    summonExpr[Show[T]] match {
+      case Some(s) => '{ $s.show($x) }
+      case None =>
+        qctx.error(s"Could not find delegate for Show[${summon[Type[T]].show}]")
+        '{ "" }
+    }
   }
 
   inline def showElems[Elems <: Tuple, Labels <: Tuple](n: Int)(x: Any): List[String] =
-    inline erasedValue[Elems] match {
-      case _: (elem *: elems1) =>
-        inline erasedValue[Labels] match {
-          case _: (label *: labels1) =>
-            val formal = constValue[label]
-            val actual = tryShow(productElement[elem](x, n))
-            s"$formal = $actual" :: showElems[elems1, labels1](n + 1)(x)
+    ${ unpickleElemsExpr[Elems, Labels]('n)('x) }
+
+  private def unpickleElemsExpr[Elems <: Tuple : Type, Labels <: Tuple : Type](n: Expr[Int])(x: Expr[Any])(using QuoteContext): Expr[List[String]] =
+    '{ ??? : Elems } match {
+      case '{ type $elems1 <: Tuple; $_ : ($elem *: `$elems1`) } =>
+        '{ ??? : Labels } match {
+          case '{ type $labels1 <: Tuple; $_ : ($label *: `$labels1`) } =>
+            val Const.Expr(label0) = label
+            '{
+              val formal = $label0
+              val actual = ${ tryShowExpr('{productElement[$elem]($x, $n)}) }
+              s"$formal = $actual" :: ${ unpickleElemsExpr('{$n + 1})(x)(using elems1, labels1, summon) }
+            }
         }
-      case _: Unit =>
-        Nil
-  }
+      case '{ $_ : Unit } =>
+        '{ Nil }
+    }
 
   inline def showCase(x: Any, m: Mirror.ProductOf[_]): String = {
     val label = constValue[m.CaseLabel]
