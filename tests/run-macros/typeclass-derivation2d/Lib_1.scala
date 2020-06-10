@@ -87,7 +87,7 @@ object Eq {
     ${ tryEqlExpr('x, 'y) }
 
   private def tryEqlExpr[T: Type](x: Expr[T], y: Expr[T])(using qctx: QuoteContext): Expr[Boolean] = {
-    summonExpr[Eq[T]] match {
+    Expr.summon[Eq[T]] match {
       case Some(eq) => '{ $eq.eql($x, $y) }
       case None =>
         qctx.error(s"Could not find delegate for Eq[${summon[Type[T]].show}]")
@@ -121,7 +121,7 @@ object Eq {
         '{
           if ($ord == $n)
             ${
-              summonExpr(using '[Mirror.ProductOf[$alt]]) match {
+              Expr.summon(using '[Mirror.ProductOf[$alt]]) match {
                 case Some('{ $mm: $tt }) =>
                   '{
                     val m = $mm
@@ -132,21 +132,34 @@ object Eq {
                   qctx.throwError(s"Could not find given for ProductOf[${alt.show}]")
               }
             }
-          else ${ eqlCasesExpr(Expr(n.value + 1))(x, y, ord)(using alts1) }
+          else ${ eqlCasesExpr(Expr(n.unlift.get + 1))(x, y, ord)(using alts1) }
         }
       case '{ $x: Unit } =>
         '{ false }
     }
 
-  inline def derived[T](implicit ev: Mirror.Of[T]): Eq[T] = new Eq[T] {
-    def eql(x: T, y: T): Boolean =
-      inline ev match {
-        case m: Mirror.SumOf[T] =>
-          val ord = m.ordinal(x)
-          ord == m.ordinal(y) && eqlCases[m.ElemTypes](0)(x, y, ord)
-        case m: Mirror.ProductOf[T] =>
-          eqlElems[m.ElemTypes](0)(x, y)
+  inline def derived[T](implicit inline ev: Mirror.Of[T]): Eq[T] =
+    ${ derivedExpr[T]('ev) }
+
+  private def derivedExpr[T: Type](using QuoteContext)(ev: Expr[Mirror.Of[T]]): Expr[Eq[T]] = '{
+    new Eq[T] {
+      def eql(x: T, y: T): Boolean = ${
+        ev match
+          case '{ $ev: Mirror.SumOf[T] } =>
+            '{
+              val m = $ev
+              val ord = m.ordinal(x)
+              type ElemTypes = m.ElemTypes
+              ord == m.ordinal(y) && ${ eqlCasesExpr[ElemTypes]('{0})('x, 'y, 'ord)(using '[ElemTypes]) }
+            }
+          case '{ $ev: Mirror.ProductOf[T] } =>
+            '{
+              val m = $ev
+              type ElemTypes = m.ElemTypes
+              ${ eqlElemsExpr[ElemTypes]('{0})('x, 'y)(using '[ElemTypes]) }
+            }
       }
+    }
   }
 
   implicit object IntEq extends Eq[Int] {
@@ -170,7 +183,7 @@ object Pickler {
     ${ tryPickleExpr('buf, 'x) }
 
   private def tryPickleExpr[T: Type](buf: Expr[mutable.ListBuffer[Int]], x: Expr[T])(using qctx: QuoteContext): Expr[Unit] = {
-    summonExpr[Pickler[T]] match {
+    Expr.summon[Pickler[T]] match {
       case Some(pkl) => '{ $pkl.pickle($buf, $x) }
       case None =>
         qctx.error(s"Could not find delegate for Pickler[${summon[Type[T]].show}]")
@@ -207,7 +220,7 @@ object Pickler {
     ${ tryUnpickleExpr[T]('buf) }
 
   private def tryUnpickleExpr[T: Type](buf: Expr[mutable.ListBuffer[Int]])(using qctx: QuoteContext): Expr[T] = {
-    summonExpr[Pickler[T]] match {
+    Expr.summon[Pickler[T]] match {
       case Some(pkl) => '{ $pkl.unpickle($buf) }
       case None =>
         qctx.error(s"Could not find delegate for Pickler[${summon[Type[T]].show}]")
@@ -291,7 +304,7 @@ object Show {
     ${ tryShowExpr('x) }
 
   private def tryShowExpr[T: Type](x: Expr[T])(using qctx: QuoteContext): Expr[String] = {
-    summonExpr[Show[T]] match {
+    Expr.summon[Show[T]] match {
       case Some(s) => '{ $s.show($x) }
       case None =>
         qctx.error(s"Could not find delegate for Show[${summon[Type[T]].show}]")
