@@ -1295,6 +1295,11 @@ class Typer extends Namer
                   case defn.MatchCase(patternTp, _) => tpt.tpe frozen_=:= patternTp
                   case _ => false
                 }
+              case (id @ Ident(nme.WILDCARD), pt) =>
+                pt match {
+                  case defn.MatchCase(patternTp, _) => defn.AnyType frozen_=:= patternTp
+                  case _ => false
+                }
               case _ => false
             }
 
@@ -1417,7 +1422,7 @@ class Typer extends Namer
     assignType(cpy.Labeled(tree)(bind1, expr1))
   }
 
-  /** Type a case of a type match */
+  /** Type a case of a match type */
   def typedTypeCase(cdef: untpd.CaseDef, selType: Type, pt: Type)(using Context): CaseDef = {
     def caseRest(using Context) = {
       val pat1 = checkSimpleKinded(typedType(cdef.pat)(using ctx.addMode(Mode.Pattern)))
