@@ -2620,7 +2620,7 @@ class TrackingTypeComparer(initctx: Context) extends TypeComparer(initctx) {
         // `6570-1.scala` for examples that exploit emptiness to break match
         // type soundness.
 
-        // If we revered the uncertainty case of this empty check, that is,
+        // If we reversed the uncertainty case of this empty check, that is,
         // `!provablyNonEmpty` instead of `provablyEmpty`, that would be
         // obviously sound, but quite restrictive. With the current formulation,
         // we need to be careful that `provablyEmpty` covers all the conditions
