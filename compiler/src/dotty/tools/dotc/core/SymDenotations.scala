@@ -752,6 +752,10 @@ object SymDenotations {
     def isSerializable(using Context): Boolean =
       isClass && derivesFrom(defn.JavaSerializableClass)
 
+    /** Is this symbol a class that extends `java.io.Serializable` ? */
+    def isEnumValue(using Context): Boolean =
+      isClass && derivesFrom(defn.EnumValueClass)
+
     /** Is this symbol a class that extends `AnyVal`? */
     final def isValueClass(using Context): Boolean =
       val di = initial

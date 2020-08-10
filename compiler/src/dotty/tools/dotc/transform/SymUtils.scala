@@ -201,6 +201,9 @@ object SymUtils {
   def rawTypeRef(using Context) =
     self.typeRef.appliedTo(self.typeParams.map(_ => TypeBounds.emptyPolyKind))
 
+  def typeRef_*(using Context) =
+    self.typeRef.appliedTo(self.typeParams.map(_ => TypeBounds.empty))
+
   /** Is symbol a quote operation? */
   def isQuote(using Context): Boolean =
     self == defn.InternalQuoted_exprQuote || self == defn.QuotedTypeModule_apply
