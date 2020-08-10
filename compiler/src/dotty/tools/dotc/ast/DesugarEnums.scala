@@ -9,6 +9,7 @@ import Decorators._
 import util.{Property, SourceFile}
 import typer.ErrorReporting._
 import transform.SyntheticMembers.ExtendsSingletonMirror
+import annotation.threadUnsafe
 
 import scala.annotation.internal.sharable
 
@@ -93,8 +94,29 @@ object DesugarEnums {
    */
   private def enumScaffolding(using Context): List[Tree] = {
     import dotty.tools.dotc.transform.SymUtils._
+    val valuesToArray = Select(valuesDot(nme.values), nme.toArray)
+    val optValueTuple =
+      if enumClass.typeParams.nonEmpty then
+        val preciseTpt: Tree =
+          @threadUnsafe lazy val defaultTpt: Tree =
+            TypeTree(enumClass.typeRef.appliedTo(enumClass.typeParams.map(_ => defn.NothingType)))
+          val TypeDef(_, enumTemplate: Template) = ctx.tree
+          val tpes = enumTemplate.body.collect {
+            case PatDef(_, pats, _,_) => pats.map(_ => defaultTpt)
+            case ModuleDef(_, impl)   => impl.parents.headOption.getOrElse(defaultTpt) :: Nil
+          }.flatten
+          Tuple(tpes)
+        val valueTupleDef =
+          val tupleFromArray = Apply(ref(defn.Tuple_fromArray.termRef), valuesToArray)
+          val asPreciseTuple = TypeApply(Select(tupleFromArray, nme.asInstanceOf_), preciseTpt :: Nil)
+          DefDef(nme.valueTuple, Nil, Nil, preciseTpt, asPreciseTuple)
+            .withFlags(Synthetic)
+        valueTupleDef :: Nil
+      else
+        Nil
+
     val valuesDef =
-      DefDef(nme.values, Nil, Nil, TypeTree(defn.ArrayOf(enumClass.typeRef_*)), Select(valuesDot(nme.values), nme.toArray))
+      DefDef(nme.values, Nil, Nil, TypeTree(defn.ArrayOf(enumClass.typeRef_*)), valuesToArray)
         .withFlags(Synthetic)
     val privateValuesDef =
       ValDef(nme.DOLLAR_VALUES, TypeTree(),
@@ -117,9 +139,11 @@ object DesugarEnums {
       TypeTree(), valuesOfBody)
         .withFlags(Synthetic)
 
-    valuesDef ::
-    privateValuesDef ::
-    valueOfDef :: Nil
+    optValueTuple ++ (
+      valuesDef ::
+      privateValuesDef ::
+      valueOfDef :: Nil
+    )
   }
 
   /** A creation method for a value of enum type `E`, which is defined as follows:

@@ -765,6 +765,8 @@ class Definitions {
     @tu lazy val CLP_showError: Symbol = CommandLineParserModule.requiredMethod("showError")
 
   @tu lazy val TupleTypeRef: TypeRef = requiredClassRef("scala.Tuple")
+  def TupleModule(using Context): Symbol = TupleTypeRef.symbol.companionModule
+    def Tuple_fromArray(using Context): Symbol = TupleModule.requiredMethod(nme.fromArray)
   def TupleClass(using Context): ClassSymbol = TupleTypeRef.symbol.asClass
     @tu lazy val Tuple_cons: Symbol = TupleClass.requiredMethod("*:")
   @tu lazy val EmptyTupleModule: Symbol = requiredModule("scala.EmptyTuple")
