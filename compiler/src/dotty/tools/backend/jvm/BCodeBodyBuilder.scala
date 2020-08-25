@@ -21,7 +21,10 @@ import dotty.tools.dotc.transform.SymUtils._
 import dotty.tools.dotc.util.Spans._
 import dotty.tools.dotc.core.Contexts._
 import dotty.tools.dotc.core.Phases._
+import dotty.tools.dotc.core.NameKinds.{PatMatResultName, PatMatAltsName, UniqueName, PatMatStdBinderName}
 import dotty.tools.dotc.report
+
+import scala.collection.mutable
 
 /*
  *
@@ -66,6 +69,97 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
         case _ => emit(asm.Opcodes.ACONST_NULL)
       }
     }
+
+    private def transformStringMatchLabelled(tree: Labeled): Tree =
+      import dotty.tools.dotc.core.{Flags => flg}
+      // report.echo(i"transforming $tree")
+      def extract(tree: Labeled) =
+        var inits: List[tpd.Tree] = Nil
+        var litBuilder = mutable.ArrayBuilder.ofRef[(Literal, Literal)]
+        var caseBuilder = mutable.ListBuffer.empty[CaseDef]
+        var selector: Symbol = null
+        var default: CaseDef = null
+        def extractMatch(tree: Match) =
+          selector = tree.selector.symbol
+          var idx = 0
+          val it = tree.cases.iterator
+          while it.hasNext do
+            val caseDef = it.next
+            caseDef.pat match
+              case lit: Literal =>
+                val ord = Literal(Constant(idx))
+                litBuilder += ((lit, ord))
+                caseBuilder += CaseDef(ord, EmptyTree, caseDef.body)
+                idx += 1
+              case defaultIdent: Ident =>
+                assert(default eq null, s"multiple default targets in a Match node, at ${tree.span}")
+                default = CaseDef(Underscore(defn.IntType), EmptyTree, caseDef.body)
+              case Alternative(alts) =>
+                val indices = alts.indices
+                val ords = indices.map(i => Literal(Constant(i + idx)))
+                alts.lazyZip(ords) foreach {
+                  case pair @ (_: Literal, _) =>
+                    litBuilder += pair.asInstanceOf[(Literal, Literal)]
+                  case _ =>
+                    abort(s"Invalid alternative in alternative pattern in Match node: $tree at: ${tree.span}")
+                }
+                caseBuilder += CaseDef(Alternative(ords.toList), EmptyTree, caseDef.body)
+                idx += indices.size
+              case _ =>
+          end while
+          if default ne null then
+            caseBuilder += default
+        end extractMatch
+        tree.expr match
+          case Block(stats, tree: Match) =>
+            inits = stats
+            extractMatch(tree)
+          case tree: Match => extractMatch(tree)
+        (inits, ref(selector), litBuilder.result, caseBuilder.toList)
+      end extract
+      val (inits, selectorRef, lits, ordinalCases) = extract(tree)
+      val labelOwner = tree.bind.symbol.owner
+      val ordinal = UniqueName.fresh(nme.ordinal)
+      val ordinalSym = newSymbol(labelOwner, ordinal, flg.Synthetic | flg.Local | flg.Mutable, defn.IntType)
+      val ordinalRef = ref(ordinalSym)
+      val ordinalDef = ValDef(ordinalSym, Literal(Constant(-1)))
+      val ordinalLabel =
+        newSymbol(labelOwner, PatMatResultName.fresh(), flg.Synthetic | flg.Label, defn.UnitType)
+      val hash = PatMatStdBinderName.fresh()
+      val hashSym = newSymbol(labelOwner, hash, flg.Synthetic | flg.Local | flg.Case, defn.IntType)
+      val hashDef = ValDef(hashSym, If(
+        cond = selectorRef.select(nme.eq).appliedTo(tpd.nullLiteral),
+        thenp = Literal(Constant(0)),
+        elsep = selectorRef.select(nme.hashCode_).ensureApplied))
+      val hashCases = lits.groupBy(_._1.const.stringValue.hashCode).toList.sortBy(_._1).map((hash, pairing) =>
+        CaseDef(Literal(Constant(hash)), EmptyTree, {
+          val cases = pairing.toList.foldRight(tpd.unitLiteral: Tree) { (p, acc) =>
+            val (str, idx) = p
+            If(str.select(nme.equals_).appliedTo(selectorRef), Assign(ordinalRef, idx), acc)
+          }
+          Return(cases, ordinalLabel)
+        })
+      ) ::: CaseDef(Underscore(defn.IntType), EmptyTree, Return(tpd.unitLiteral, ordinalLabel)) :: Nil
+      val hashBlock = Labeled(Bind(ordinalLabel, EmptyTree), Block(
+        hashDef :: Nil,
+        Match(ref(hashSym), hashCases)
+      ))
+      val ordinalScrut = PatMatStdBinderName.fresh()
+      val ordinalScrutSym = newSymbol(labelOwner, ordinalScrut, flg.Synthetic | flg.Local | flg.Case, defn.IntType)
+      val ordinalScrutDef = ValDef(ordinalScrutSym, ref(ordinalSym))
+      val ordinalBlock = Labeled(tree.bind, Block(
+        ordinalScrutDef :: Nil,
+        Match(ref(ordinalScrutSym), ordinalCases)
+      ))
+      val res = Block(
+        inits :::
+        ordinalDef ::
+        hashBlock :: Nil,
+        ordinalBlock
+      )
+      // report.echo(i"check res: $res")
+      res
+    end transformStringMatchLabelled
 
     /*
      * Emits code that adds nothing to the operand stack.
@@ -276,6 +370,25 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
 
       lineNumber(tree)
 
+      def isStringMatchBlock(tree: Tree) =
+        def isStringMatch(m: Match) = m.cases.exists { _.pat match {
+          case Literal(Constant(_: String)) => true
+          case Alternative(alts) => alts.exists {
+            case Literal(Constant(_: String)) => true
+            case _ => false
+          }
+          case _ => false
+        }}
+        tree match
+          case Block(stats, expr) =>
+            (expr :: stats).exists {
+              case m: Match => isStringMatch(m)
+              case _ => false
+            }
+          case m: Match => isStringMatch(m)
+          case _ => false
+      end isStringMatchBlock
+
       tree match {
         case ValDef(nme.THIS, _, _) =>
           report.debuglog("skipping trivial assign to _$this: " + tree)
@@ -297,6 +410,9 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
 
         case t @ If(_, _, _) =>
           generatedType = genLoadIf(t, expectedType)
+
+        case t @ Labeled(label, expr) if (label.name.is(PatMatResultName) || label.name.is(PatMatAltsName)) && isStringMatchBlock(expr) =>
+          genLoad(transformStringMatchLabelled(t))
 
         case t @ Labeled(_, _) =>
           generatedType = genLabeled(t)
@@ -549,7 +665,6 @@ trait BCodeBodyBuilder extends BCodeSkelBuilder {
 
     private def genLabeled(tree: Labeled): BType = tree match {
       case Labeled(bind, expr) =>
-
       val resKind = tpeTK(tree)
       genLoad(expr, resKind)
       markProgramPoint(programPoint(bind.symbol))

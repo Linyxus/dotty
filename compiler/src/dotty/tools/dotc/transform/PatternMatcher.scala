@@ -759,13 +759,18 @@ object PatternMatcher {
         (tpe isRef defn.IntClass) ||
         (tpe isRef defn.ByteClass) ||
         (tpe isRef defn.ShortClass) ||
-        (tpe isRef defn.CharClass)
+        (tpe isRef defn.CharClass) ||
+        (tpe isRef defn.StringClass)
 
-      val seen = mutable.Set[Int]()
+      val seenInt = mutable.Set[Int]()
+      val seenString = mutable.Set[String]()
 
-      def isNewIntConst(tree: Tree) = tree match {
-        case Literal(const) if const.isIntRange && !seen.contains(const.intValue) =>
-          seen += const.intValue
+      def isNewConst(tree: Tree) = tree match {
+        case Literal(const) if const.isIntRange && !seenInt.contains(const.intValue) =>
+          seenInt += const.intValue
+          true
+        case Literal(Constant(str: String)) if !seenString.contains(str) =>
+          seenString += str
           true
         case _ =>
           false
@@ -780,7 +785,7 @@ object PatternMatcher {
               val alts = List.newBuilder[Tree]
               def rec(innerPlan: Plan): Boolean = innerPlan match {
                 case SeqPlan(TestPlan(EqualTest(tree), scrut, _, ReturnPlan(`innerLabel`)), tail)
-                if scrut === scrutinee && isNewIntConst(tree) =>
+                if scrut === scrutinee && isNewConst(tree) =>
                   alts += tree
                   rec(tail)
                 case ReturnPlan(`outerLabel`) =>
@@ -800,7 +805,7 @@ object PatternMatcher {
 
       def recur(plan: Plan): List[(List[Tree], Plan)] = plan match {
         case SeqPlan(testPlan @ TestPlan(EqualTest(tree), scrut, _, ons), tail)
-        if scrut === scrutinee && !canFallThrough(ons) && isNewIntConst(tree) =>
+        if scrut === scrutinee && !canFallThrough(ons) && isNewConst(tree) =>
           (tree :: Nil, ons) :: recur(tail)
         case SeqPlan(AlternativesPlan(alts, ons), tail) =>
           (alts, ons) :: recur(tail)
@@ -823,29 +828,30 @@ object PatternMatcher {
 
     /** Emit a switch-match */
     private def emitSwitchMatch(scrutinee: Tree, cases: List[(List[Tree], Plan)]): Match = {
-      /* Make sure to adapt the scrutinee to Int, as well as all the alternatives
-       * of all cases, so that only Matches on pritimive Ints survive this phase.
+      /* Make sure to adapt the scrutinee to Int or String, as well as all the alternatives
+       * of all cases, so that only Matches on pritimive Ints or String literals survive this phase.
        */
 
-      val intScrutinee =
-        if (scrutinee.tpe.widen.isRef(defn.IntClass)) scrutinee
+      val scrutinee1 =
+        if (scrutinee.tpe.widen.isRef(defn.StringClass)) scrutinee
+        else if (scrutinee.tpe.widen.isRef(defn.IntClass)) scrutinee
         else scrutinee.select(nme.toInt)
 
-      def intLiteral(lit: Tree): Tree =
+      def literal(lit: Tree): Tree =
         val Literal(constant) = lit
-        if (constant.tag == Constants.IntTag) lit
+        if constant.tag == Constants.IntTag || constant.tag == Constants.StringTag then lit
         else cpy.Literal(lit)(Constant(constant.intValue))
 
       val caseDefs = cases.map { (alts, ons) =>
         val pat = alts match {
-          case alt :: Nil => intLiteral(alt)
+          case alt :: Nil => literal(alt)
           case Nil => Underscore(defn.IntType) // default case
-          case _ => Alternative(alts.map(intLiteral))
+          case _ => Alternative(alts.map(literal))
         }
         CaseDef(pat, EmptyTree, emit(ons))
       }
 
-      Match(intScrutinee, caseDefs)
+      Match(scrutinee1, caseDefs)
     }
 
     /** If selfCheck is `true`, used to check whether a tree gets generated twice */
