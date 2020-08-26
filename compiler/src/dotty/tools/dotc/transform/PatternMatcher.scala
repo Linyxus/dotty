@@ -764,14 +764,26 @@ object PatternMatcher {
 
       val seenInt = mutable.Set[Int]()
       val seenString = mutable.Set[String]()
+      var hasNull = false
 
       def isNewConst(tree: Tree) = tree match {
         case Literal(const) if const.isIntRange && !seenInt.contains(const.intValue) =>
           seenInt += const.intValue
           true
-        case Literal(Constant(str: String)) if !seenString.contains(str) =>
+        case Literal(Constant(null | _: String)) => true
+        case _ =>
+          false
+      }
+
+      def shouldSkip(tree: Tree) = tree match {
+        case Literal(Constant(null)) =>
+          val res = hasNull
+          hasNull = true
+          res
+        case Literal(Constant(str: String)) =>
+          val res = seenString.contains(str)
           seenString += str
-          true
+          res
         case _ =>
           false
       }
@@ -786,7 +798,8 @@ object PatternMatcher {
               def rec(innerPlan: Plan): Boolean = innerPlan match {
                 case SeqPlan(TestPlan(EqualTest(tree), scrut, _, ReturnPlan(`innerLabel`)), tail)
                 if scrut === scrutinee && isNewConst(tree) =>
-                  alts += tree
+                  if !shouldSkip(tree) then
+                    alts += tree
                   rec(tail)
                 case ReturnPlan(`outerLabel`) =>
                   true
@@ -806,7 +819,8 @@ object PatternMatcher {
       def recur(plan: Plan): List[(List[Tree], Plan)] = plan match {
         case SeqPlan(testPlan @ TestPlan(EqualTest(tree), scrut, _, ons), tail)
         if scrut === scrutinee && !canFallThrough(ons) && isNewConst(tree) =>
-          (tree :: Nil, ons) :: recur(tail)
+          if shouldSkip(tree) then recur(tail)
+          else (tree :: Nil, ons) :: recur(tail)
         case SeqPlan(AlternativesPlan(alts, ons), tail) =>
           (alts, ons) :: recur(tail)
         case _ =>
@@ -839,8 +853,9 @@ object PatternMatcher {
 
       def literal(lit: Tree): Tree =
         val Literal(constant) = lit
-        if constant.tag == Constants.IntTag || constant.tag == Constants.StringTag then lit
-        else cpy.Literal(lit)(Constant(constant.intValue))
+        constant.tag match
+          case Constants.IntTag | Constants.StringTag | Constants.NullTag => lit
+          case _ => cpy.Literal(lit)(Constant(constant.intValue))
 
       val caseDefs = cases.map { (alts, ons) =>
         val pat = alts match {
