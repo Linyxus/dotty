@@ -1099,22 +1099,22 @@ object Types {
       case _ => this
     }
 
-    /** same as widen, but preserves modules and singleton enum values */
-    final def widenToModule(using Context): Type =
-      def widenSingletonToModule(self: Type)(using Context): Type = self.stripTypeVar.stripAnnots match
-        case tp @ ModuleOrEnumValueRef() => tp
-        case tp: SingletonType if !tp.isOverloaded => widenSingletonToModule(tp.underlying)
-        case _ => self
-      widenSingletonToModule(this) match
-        case tp: ExprType => tp.resultType.widenToModule
-        case tp           => tp
+    // /** same as widen, but preserves modules and singleton enum values */
+    // final def widenToModule(using Context): Type =
+    //   def widenSingletonToModule(self: Type)(using Context): Type = self.stripTypeVar.stripAnnots match
+    //     case tp @ ModuleOrEnumValueRef() => tp
+    //     case tp: SingletonType if !tp.isOverloaded => widenSingletonToModule(tp.underlying)
+    //     case _ => self
+    //   widenSingletonToModule(this) match
+    //     case tp: ExprType => tp.resultType.widenToModule
+    //     case tp           => tp
 
     /** Widen from TermRef to its underlying non-termref
      *  base type, while also skipping Expr types.
      *  Preserves references to modules or singleton enum values
      */
     final def widenTermRefExpr(using Context): Type = stripTypeVar match {
-      case tp @ ModuleOrEnumValueRef() => tp
+      // case tp @ ModuleOrEnumValueRef() => tp
       case tp: TermRef if !tp.isOverloaded => tp.underlying.widenExpr.widenTermRefExpr
       case _ => this
     }
@@ -1157,7 +1157,7 @@ object Types {
      *  Exception (if `-YexplicitNulls` is set): if this type is a nullable union (i.e. of the form `T | Null`),
      *  then the top-level union isn't widened. This is needed so that type inference can infer nullable types.
      */
-    def widenUnion(using Context): Type = widenToModule match {
+    def widenUnion(using Context): Type = widen match {
       case tp @ OrNull(tp1): OrType =>
         // Don't widen `T|Null`, since otherwise we wouldn't be able to infer nullable unions.
         val tp1Widen = tp1.widenUnionWithoutNull
@@ -1167,7 +1167,7 @@ object Types {
         tp.widenUnionWithoutNull
     }
 
-    def widenUnionWithoutNull(using Context): Type = widenToModule match {
+    def widenUnionWithoutNull(using Context): Type = widen match {
       case tp @ OrType(lhs, rhs) =>
         TypeComparer.lub(lhs.widenUnionWithoutNull, rhs.widenUnionWithoutNull, canConstrain = true) match {
           case union: OrType => union.join
@@ -1185,11 +1185,11 @@ object Types {
         tp
     }
 
-    def widenEnumCase(using Context): Type = dealias match {
-      case tp: (TypeRef | AppliedType) if tp.typeSymbol.isAllOf(EnumCase)     => tp.parents.head
-      case tp: TermRef if tp.termSymbol.isAllOf(EnumCase, butNot=JavaDefined) => tp.underlying.widenExpr
-      case _                                                                  => this
-    }
+    // def widenEnumCase(using Context): Type = dealias match {
+    //   case tp: (TypeRef | AppliedType) if tp.typeSymbol.isAllOf(EnumCase)     => tp.parents.head
+    //   case tp: TermRef if tp.termSymbol.isAllOf(EnumCase, butNot=JavaDefined) => tp.underlying.widenExpr
+    //   case _                                                                  => this
+    // }
 
     /** Widen all top-level singletons reachable by dealiasing
      *  and going to the operands of & and |.
@@ -1197,7 +1197,7 @@ object Types {
      */
     def widenSingletons(using Context): Type = dealias match {
       case tp: SingletonType =>
-        tp.widenToModule
+        tp.widen//ToModule
       case tp: OrType =>
         val tp1w = tp.widenSingletons
         if (tp1w eq tp) this else tp1w
@@ -2566,10 +2566,10 @@ object Types {
       apply(prefix, designatorFor(prefix, name, denot)).withDenot(denot)
   }
 
-  object ModuleOrEnumValueRef:
-    def unapply(tp: TermRef)(using Context): Boolean =
-      val sym = tp.termSymbol
-      sym.isAllOf(EnumCase, butNot=JavaDefined) || sym.is(Module)
+  // object ModuleOrEnumValueRef:
+  //   def unapply(tp: TermRef)(using Context): Boolean =
+  //     val sym = tp.termSymbol
+  //     sym.isAllOf(EnumCase, butNot=JavaDefined) || sym.is(Module)
 
   object TypeRef {
 

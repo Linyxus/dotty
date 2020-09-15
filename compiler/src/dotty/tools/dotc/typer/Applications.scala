@@ -857,6 +857,8 @@ trait Applications extends Compatibility {
   /** Typecheck application. Result could be an `Apply` node,
    *  or, if application is an operator assignment, also an `Assign` or
    *  Block node.
+   *
+   *  If symbol of the function is `apply` on companion object of an Enum then widen the result if `pt` is unbounded
    */
   def typedApply(tree: untpd.Apply, pt: Type)(using Context): Tree = {
 
@@ -1023,7 +1025,19 @@ trait Applications extends Compatibility {
               checkCanEqual(left.tpe.widen, right.tpe.widen, app.span)
           case _ =>
         }
-        app
+        def isEnumApply(fn: Symbol)(using Context): Boolean =
+          fn.name == nme.apply
+          && fn.owner.is(Module)
+          && fn.owner.sourceModule.companionClass.isAllOf(EnumCase)
+          && fn.signature == fn.owner.sourceModule.companionClass.primaryConstructor.signature
+        def isEnumBound(pt: Type)(using Context): Boolean = pt match
+          case WildcardType(optBounds) => optBounds.exists && isEnumBound(optBounds.bounds.hi)
+          case _ => TypeComparer.isSubTypeWhenFrozen(pt, defn.EnumClass.typeRef)//pt.typeSymbol.is(Enum, butNot=JavaDefined)
+        app match {
+          case Apply(fn, args) if fn.hasType && isEnumApply(fn.symbol) && !isEnumBound(pt) =>
+            untpd.cpy.Apply(app)(fn, args).withType(app.tpe.parents.head)
+          case _ => app
+        }
       }
     app1 match {
       case Apply(Block(stats, fn), args) =>
