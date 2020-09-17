@@ -356,6 +356,19 @@ object desugar {
     vparam.withMods(mods & (GivenOrImplicit | Erased | hasDefault) | Param)
   }
 
+  def appliedRefArgs(tparams: List[TypeDef], widenHK: Boolean = false)(using Context) = for (tparam <- tparams) yield {
+    val targ = refOfDef(tparam)
+    def fullyApplied(tparam: Tree): Tree = tparam match {
+      case TypeDef(_, LambdaTypeTree(tparams, body)) =>
+        AppliedTypeTree(targ, tparams.map(_ => WildcardTypeBoundsTree()))
+      case TypeDef(_, rhs: DerivedTypeTree) =>
+        fullyApplied(rhs.watched)
+      case _ =>
+        targ
+    }
+    if (widenHK) fullyApplied(tparam) else targ
+  }
+
   /** The expansion of a class definition. See inline comments for what is involved */
   def classDef(cdef: TypeDef)(using Context): Tree = {
     val impl @ Template(constr0, _, self, _) = cdef.rhs
@@ -503,21 +516,8 @@ object desugar {
       case _ => false
     }
 
-    def appliedRef(tycon: Tree, tparams: List[TypeDef] = constrTparams, widenHK: Boolean = false) = {
-      val targs = for (tparam <- tparams) yield {
-        val targ = refOfDef(tparam)
-        def fullyApplied(tparam: Tree): Tree = tparam match {
-          case TypeDef(_, LambdaTypeTree(tparams, body)) =>
-            AppliedTypeTree(targ, tparams.map(_ => WildcardTypeBoundsTree()))
-          case TypeDef(_, rhs: DerivedTypeTree) =>
-            fullyApplied(rhs.watched)
-          case _ =>
-            targ
-        }
-        if (widenHK) fullyApplied(tparam) else targ
-      }
-      appliedTypeTree(tycon, targs)
-    }
+    def appliedRef(tycon: Tree, tparams: List[TypeDef] = constrTparams, widenHK: Boolean = false) =
+      appliedTypeTree(tycon, appliedRefArgs(tparams, widenHK))
 
     def isRepeated(tree: Tree): Boolean = tree match {
       case PostfixOp(_, Ident(tpnme.raw.STAR)) => true
@@ -1014,7 +1014,7 @@ object desugar {
     val PatDef(mods, pats, tpt, rhs) = pdef
     if (mods.isEnumCase)
       def expand(id: Ident, definesLookups: Boolean) =
-        expandSimpleEnumCase(id.name.asTermName, mods, definesLookups,
+        expandSimpleEnumCase(id.name.asTermName, Nil, mods, definesLookups,
             Span(id.span.start, id.span.end, id.span.start))
 
       val ids = pats.asInstanceOf[List[Ident]]

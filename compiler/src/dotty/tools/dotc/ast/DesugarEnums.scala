@@ -172,6 +172,9 @@ object DesugarEnums {
     scaffolding ::: valueCtor ::: byOrdinal
   end enumLookupMethods
 
+  private def derivedTypeParam(sym: TypeSymbol)(using Context): TypeDef =
+    TypeDef(sym.name, desugar.DerivedFromParamTree().watching(sym)).withFlags(TypeParam)
+
   /** A creation method for a value of enum type `E`, which is defined as follows:
    *
    *   private def $new(_$ordinal: Int, $name: String) = new E with scala.runtime.EnumValue {
@@ -189,14 +192,19 @@ object DesugarEnums {
         val ordinalDef   = ordinalMeth(Ident(nme.ordinalDollar_))
         val enumLabelDef = enumLabelMeth(Ident(nme.nameDollar))
         ordinalDef :: enumLabelDef :: Nil
+
+    val params = enumClass.typeParams.map(derivedTypeParam)
+    val enumTpt =
+      if params.isEmpty then enumClassRef
+      else AppliedTypeTree(ref(enumClass.typeRef), desugar.appliedRefArgs(params))
     val creator = New(Template(
       constr = emptyConstructor,
-      parents = enumClassRef :: scalaRuntimeDot(tpnme.EnumValue) :: Nil,
+      parents = enumTpt :: scalaRuntimeDot(tpnme.EnumValue) :: Nil,
       derived = Nil,
       self = EmptyValDef,
       body = fieldMethods
     ).withAttachment(ExtendsSingletonMirror, ()))
-    DefDef(nme.DOLLAR_NEW, Nil,
+    DefDef(nme.DOLLAR_NEW, params,
         List(List(param(nme.ordinalDollar_, defn.IntType), param(nme.nameDollar, defn.StringType))),
         TypeTree(), creator).withFlags(Private | Synthetic)
   }
@@ -340,36 +348,42 @@ object DesugarEnums {
     enumLabelMeth(Literal(Constant(name)))
 
   /** Expand a module definition representing a parameterless enum case */
-  def expandEnumModule(name: TermName, impl: Template, mods: Modifiers, definesLookups: Boolean, span: Span)(using Context): Tree = {
+  def expandEnumModule(name: TermName, impl: Template, mods: Modifiers, definesLookups: Boolean, span: Span)(using Context): Tree =
     assert(impl.body.isEmpty)
-    if (!enumClass.exists) EmptyTree
-    else if (impl.parents.isEmpty)
-      expandSimpleEnumCase(name, mods, definesLookups, span)
-    else {
-      val (tag, scaffolding) = nextOrdinal(name, CaseKind.Object, definesLookups)
-      val ordinalDef   = if isJavaEnum then Nil else ordinalMethLit(tag) :: Nil
-      val enumLabelDef = enumLabelLit(name.toString)
-      val impl1 = cpy.Template(impl)(
-        parents = impl.parents :+ scalaRuntimeDot(tpnme.EnumValue),
-        body = ordinalDef ::: enumLabelDef :: Nil
-      ).withAttachment(ExtendsSingletonMirror, ())
-      val vdef = ValDef(name, TypeTree(), New(impl1)).withMods(mods.withAddedFlags(EnumValue, span))
-      flatTree(vdef :: scaffolding).withSpan(span)
-    }
-  }
+    if !enumClass.exists then EmptyTree
+    else impl.parents match
+      case Nil =>
+        expandSimpleEnumCase(name, Nil, mods, definesLookups, span)
+      case AppliedTypeTree(Ident(enumCls), args) :: Nil if enumCls == enumClass.name =>
+        expandSimpleEnumCase(name, args, mods, definesLookups, span) // optimise case where only apply types
+      case _ =>
+        val (tag, scaffolding) = nextOrdinal(name, CaseKind.Object, definesLookups)
+        val ordinalDef   = if isJavaEnum then Nil else ordinalMethLit(tag) :: Nil
+        val enumLabelDef = enumLabelLit(name.toString)
+        val impl1 = cpy.Template(impl)(
+          parents = impl.parents :+ scalaRuntimeDot(tpnme.EnumValue),
+          body = ordinalDef ::: enumLabelDef :: Nil
+        ).withAttachment(ExtendsSingletonMirror, ())
+        val vdef = ValDef(name, TypeTree(), New(impl1)).withMods(mods.withAddedFlags(EnumValue, span))
+        flatTree(vdef :: scaffolding).withSpan(span)
+    end if
 
   /** Expand a simple enum case */
-  def expandSimpleEnumCase(name: TermName, mods: Modifiers, definesLookups: Boolean, span: Span)(using Context): Tree =
+  def expandSimpleEnumCase(name: TermName, tpts: List[Tree], mods: Modifiers, definesLookups: Boolean, span: Span)(using Context): Tree =
     if (!enumClass.exists) EmptyTree
-    else if (enumClass.typeParams.nonEmpty) {
+    else if (enumClass.typeParams.nonEmpty && tpts.isEmpty) {
       val parent = interpolatedEnumParent(span)
       val impl = Template(emptyConstructor, parent :: Nil, Nil, EmptyValDef, Nil)
       expandEnumModule(name, impl, mods, definesLookups, span)
     }
     else {
       val (tag, scaffolding) = nextOrdinal(name, CaseKind.Simple, definesLookups)
-      val creator = Apply(Ident(nme.DOLLAR_NEW), List(Literal(Constant(tag)), Literal(Constant(name.toString))))
-      val vdef = ValDef(name, enumClassRef, creator).withMods(mods.withAddedFlags(EnumValue, span))
+      val creatorRef = Ident(nme.DOLLAR_NEW)
+      val (enumRef, typedCreatorRef) =
+        if tpts.isEmpty then (enumClassRef, creatorRef)
+        else (AppliedTypeTree(enumClassRef, tpts), TypeApply(creatorRef, tpts))
+      val creator = Apply(typedCreatorRef, List(Literal(Constant(tag)), Literal(Constant(name.toString))))
+      val vdef = ValDef(name, enumRef, creator).withMods(mods.withAddedFlags(EnumValue, span))
       flatTree(vdef :: scaffolding).withSpan(span)
     }
 }
