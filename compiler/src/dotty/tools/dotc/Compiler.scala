@@ -44,7 +44,8 @@ class Compiler {
     List(new sjs.PrepJSInterop) ::  // Additional checks and transformations for Scala.js (Scala.js only)
     List(new Staging) ::            // Check PCP, heal quoted types and expand macros
     List(new sbt.ExtractAPI) ::     // Sends a representation of the API of classes to sbt via callbacks
-    List(new SetRootTree) ::        // Set the `rootTreeOrProvider` on class symbols
+    List(new SetRootTree,           // Set the `rootTreeOrProvider` on class symbols
+         new CompleteJavaEnums) ::  // Fill in constructors for Java enums
     Nil
 
   /** Phases dealing with TASTY tree pickling and unpickling */
@@ -101,7 +102,6 @@ class Compiler {
          new ArrayApply,             // Optimize `scala.Array.apply([....])` and `scala.Array.apply(..., [....])` into `[...]`
          new ElimPolyFunction,       // Rewrite PolyFunction subclasses to FunctionN subclasses
          new TailRec,                // Rewrite tail recursion to loops
-         new CompleteJavaEnums,      // Fill in constructors for Java enums
          new Mixin,                  // Expand trait fields and trait initializers
          new LazyVals,               // Expand lazy vals
          new Memoize,                // Add private fields to getters and setters

@@ -230,8 +230,7 @@ class Run(comp: Compiler, ictx: Context) extends ImplicitRunInfo with Constraint
         ctx.typer.lateEnter(unit.untpdTree)
         def processUnit() = {
           unit.tpdTree = ctx.typer.typedExpr(unit.untpdTree)
-          val phase = new transform.SetRootTree()
-          phase.run
+          transform.SetRootTree.addRootsInUnit(unit)
         }
         if (typeCheck)
           if (compiling) finalizeActions += (() => processUnit()) else processUnit()
