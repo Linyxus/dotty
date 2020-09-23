@@ -25,6 +25,21 @@ object TreePickler {
 
   val sectionName = "ASTs"
 
+  // the synthetic no-arg signature for java.lang.Enum.<init>, used in desugaring enums
+  private[tasty] val JavaEnumInitSig =
+    Signature(List(1), QualifiedName(QualifiedName(nme.java, nme.lang), nme.Enum).toTypeName)
+
+  // the correct canonical signature for java.lang.Enum.<init>, as specified by its class file
+  private[tasty] val JavaEnumInitArgSig =
+    Signature(
+      List[Signature.ParamSig](
+        1,
+        QualifiedName(QualifiedName(nme.java, nme.lang), nme.String).toTypeName,
+        QualifiedName(nme.scala, nme.Int).toTypeName,
+      ),
+      QualifiedName(QualifiedName(nme.java, nme.lang), nme.Enum).toTypeName
+    )
+
   case class Hole(isTermHole: Boolean, idx: Int, args: List[tpd.Tree])(implicit @constructorOnly src: SourceFile) extends tpd.Tree {
     override def isTerm: Boolean = isTermHole
     override def isType: Boolean = !isTermHole
@@ -421,8 +436,12 @@ class TreePickler(pickler: TastyPickler) {
                   pickleType(tree.symbol.owner.typeRef)
                 }
               else
+                val isJavaInit = sig == JavaEnumInitSig
+                  && (name eq nme.CONSTRUCTOR)
+                  && (qual.symbol eq defn.JavaEnumClass)
+                val normalisedSig = if isJavaInit then JavaEnumInitArgSig else sig
                 writeByte(if (name.isTypeName) SELECTtpt else SELECT)
-                pickleNameAndSig(name, sig)
+                pickleNameAndSig(name, normalisedSig)
                 pickleTree(qual)
           }
         case Apply(fun, args) =>

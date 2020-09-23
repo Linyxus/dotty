@@ -1052,7 +1052,7 @@ class TreeUnpickler(reader: TastyReader,
         }
         ConstFold(untpd.Select(qual, name).withType(tpe))
 
-      def completeSelect(name: Name, sig: Signature): Select =
+      def completeSelect(name: Name, sig: Signature)(using Context): Select =
         val qual = readTerm()
         val denot = accessibleDenot(qual.tpe.widenIfUnstable, name, sig)
         makeSelect(qual, name, denot)
@@ -1061,11 +1061,14 @@ class TreeUnpickler(reader: TastyReader,
         val qual = readTerm().asInstanceOf[untpd.Ident]
         (untpd.Ident(qual.name).withSpan(qual.span), qual.tpe.asInstanceOf[TypeRef])
 
-      def accessibleDenot(qualType: Type, name: Name, sig: Signature) = {
+      def accessibleDenot(qualType: Type, name: Name, sig: Signature)(using Context) = {
         val pre = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
-        val d = qualType.findMember(name, pre).atSignature(sig)
+        val isJavaInit = sig == TreePickler.JavaEnumInitArgSig
+          && (name == nme.CONSTRUCTOR) && (pre.typeSymbol eq defn.JavaEnumClass)
+        val normalizedSig = if isJavaInit then TreePickler.JavaEnumInitSig else sig
+        val d = qualType.findMember(name, pre).atSignature(normalizedSig)
         if (!d.symbol.exists || d.symbol.isAccessibleFrom(pre)) d
-        else qualType.findMember(name, pre, excluded = Private).atSignature(sig)
+        else qualType.findMember(name, pre, excluded = Private).atSignature(normalizedSig)
       }
 
       def readSimpleTerm(): Tree = tag match {
