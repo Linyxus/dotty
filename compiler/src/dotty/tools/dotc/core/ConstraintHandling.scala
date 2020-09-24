@@ -307,7 +307,7 @@ trait ConstraintHandling {
    * At this point we also drop the @Repeated annotation to avoid inferring type arguments with it,
    * as those could leak the annotation to users (see run/inferred-repeated-result).
    */
-  def widenInferred(inst: Type, bound: Type)(using Context): Type =
+  def widenInferredTopLevel(inst: Type, bound: Type)(using Context): Type =
 
     def dropSuperTraits(tp: Type): Type =
       var kept: Set[Type] = Set()      // types to keep since otherwise bound would not fit
@@ -362,7 +362,32 @@ trait ConstraintHandling {
         TermRef(wideInst.prefix, wideInst.symbol.sourceModule)
       case _ =>
         wideInst.dropRepeatedAnnot
-  end widenInferred
+  end widenInferredTopLevel
+
+  /** Widen types as if inferring a type parameter of a method call */
+  def widenInferred(inst: Type, bound: Type)(using Context): Type =
+    upperAdtBound(widenInferredTopLevel(inst, bound), bound, bound)
+
+  /** If constraints for `param` have upper bound of some enum case, then keep `instance`, else widen `instance`
+   *  to the parent enum type.
+   */
+   def upperAdtBound(inst: Type, param: TypeParamRef)(using Context): Type =
+    upperAdtBound(inst, param, constraint.entry(param))
+
+  def upperAdtBound(inst: Type, bound: Type, constrained: Type)(using Context): Type =
+
+    def isEnumCase(tp: Type)(using Context): Boolean = tp match
+      case WildcardType(optBounds) => optBounds.exists && isEnumCase(optBounds.bounds.hi)
+      case _ =>
+        tp.typeSymbol.isAllOf(EnumCase, butNot=JavaDefined)
+
+    def widenEnumToBound(tp: Type)(using Context) =
+      val tpw = tp.widenEnumCase
+      if (tpw ne tp) && (tpw <:< bound) then tpw else tp
+
+    if isEnumCase(constrained) then inst
+    else widenEnumToBound(inst)
+  end upperAdtBound
 
   /** The instance type of `param` in the current constraint (which contains `param`).
    *  If `fromBelow` is true, the instance type is the lub of the parameter's
@@ -373,7 +398,7 @@ trait ConstraintHandling {
   def instanceType(param: TypeParamRef, fromBelow: Boolean)(using Context): Type = {
     val approx = approximation(param, fromBelow).simplified
     if fromBelow then
-      val widened = widenInferred(approx, param)
+      val widened = widenInferredTopLevel(approx, param)
       // Widening can add extra constraints, in particular the widened type might
       // be a type variable which is now instantiated to `param`, and therefore
       // cannot be used as an instantiation of `param` without creating a loop.
@@ -383,7 +408,7 @@ trait ConstraintHandling {
       if constraint.occursAtToplevel(param, widened) then
         instanceType(param, fromBelow)
       else
-        widened
+        upperAdtBound(widened, param)
     else
       approx
   }

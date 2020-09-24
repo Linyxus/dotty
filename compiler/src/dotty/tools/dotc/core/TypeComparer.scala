@@ -2620,6 +2620,9 @@ object TypeComparer {
   def addToConstraint(tl: TypeLambda, tvars: List[TypeVar])(using Context): Boolean =
     comparing(_.addToConstraint(tl, tvars))
 
+  def widenInferredTopLevel(inst: Type, bound: Type)(using Context): Type =
+    comparing(_.widenInferredTopLevel(inst, bound))
+
   def widenInferred(inst: Type, bound: Type)(using Context): Type =
     comparing(_.widenInferred(inst, bound))
 

@@ -1140,6 +1140,13 @@ object Types {
       case _ => this
     }
 
+    /** If this is an enum case, widen to its parent enum type */
+    def widenEnumCase(using Context): Type = dealias match {
+      case tp: (TypeRef | AppliedType) if tp.typeSymbol.isAllOf(EnumCase)     => tp.parents.head
+      case tp: TermRef if tp.termSymbol.isAllOf(EnumCase, butNot=JavaDefined) => tp.underlying.widenExpr
+      case _                                                                  => this
+    }
+
     /** Widen this type and if the result contains embedded union types, replace
      *  them by their joins.
      *  "Embedded" means: inside type lambdas, intersections or recursive types, or in prefixes of refined types.
