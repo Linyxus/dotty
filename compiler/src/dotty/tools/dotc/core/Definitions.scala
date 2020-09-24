@@ -945,6 +945,7 @@ class Definitions {
   @tu lazy val InfixAnnot: ClassSymbol = requiredClass("scala.annotation.infix")
   @tu lazy val AlphaAnnot: ClassSymbol = requiredClass("scala.annotation.alpha")
   @tu lazy val VarargsAnnot: ClassSymbol = requiredClass("scala.annotation.varargs")
+  @tu lazy val PreciseAnnot: ClassSymbol = requiredClass("scala.annotation.precise")
 
   // A list of annotations that are commonly used to indicate that a field/method argument or return
   // type is not null. These annotations are used by the nullification logic in JavaNullInterop to

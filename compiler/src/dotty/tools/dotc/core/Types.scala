@@ -1119,6 +1119,16 @@ object Types {
       case _ => this
     }
 
+    final def collapseTermRef(using Context): Type =
+      def inner(tp: Type, outer: Type): Type = tp.stripTypeVar match {
+        case tp: TermRef if !tp.isOverloaded => inner(tp.underlying.widenExpr, tp)
+        case _ => outer
+      }
+      stripTypeVar match {
+        case tp: TermRef if !tp.isOverloaded => inner(tp.underlying.widenExpr, this)
+        case thing => this
+      }
+
     /** Widen from ExprType type to its result type.
      *  (Note: no stripTypeVar needed because TypeVar's can't refer to ExprTypes.)
      */

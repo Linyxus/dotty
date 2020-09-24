@@ -291,7 +291,7 @@ object Inliner {
 
       val Apply(_, codeArg :: Nil) = tree
       val underlyingCodeArg = stripTyped(codeArg.underlying)
-      ConstFold(underlyingCodeArg).tpe.widenTermRefExpr match {
+      ConstFold(underlyingCodeArg).tpe.collapseTermRef match {
         case ConstantType(Constant(code: String)) =>
           val source2 = SourceFile.virtual("tasty-reflect", code)
           val ctx2 = ctx.fresh.setNewTyperState().setTyper(new Typer).setSource(source2)
@@ -977,7 +977,7 @@ class Inliner(call: tpd.Tree, rhsToInline: tpd.Tree)(using Context) {
       	 *  scrutinee as RHS and type that corresponds to RHS.
       	 */
         def newTermBinding(sym: TermSymbol, rhs: Tree): Unit = {
-          val copied = sym.copy(info = rhs.tpe.widenTermRefExpr, coord = sym.coord, flags = sym.flags &~ Case).asTerm
+          val copied = sym.copy(info = rhs.tpe.collapseTermRef, coord = sym.coord, flags = sym.flags &~ Case).asTerm
           caseBindingMap += ((sym, ValDef(copied, constToLiteral(rhs)).withSpan(sym.span)))
         }
 
@@ -1095,7 +1095,7 @@ class Inliner(call: tpd.Tree, rhsToInline: tpd.Tree)(using Context) {
                 def reduceSubPatterns(pats: List[Tree], selectors: List[Tree]): Boolean = (pats, selectors) match {
                   case (Nil, Nil) => true
                   case (pat :: pats1, selector :: selectors1) =>
-                    val elem = newSym(InlineBinderName.fresh(), Synthetic, selector.tpe.widenTermRefExpr).asTerm
+                    val elem = newSym(InlineBinderName.fresh(), Synthetic, selector.tpe.collapseTermRef).asTerm
                     val rhs = constToLiteral(selector)
                     elem.defTree = rhs
                     caseBindingMap += ((NoSymbol, ValDef(elem, rhs).withSpan(elem.span)))
@@ -1126,7 +1126,7 @@ class Inliner(call: tpd.Tree, rhsToInline: tpd.Tree)(using Context) {
       }
 
       /** The initial scrutinee binding: `val $scrutineeN = <scrutinee>` */
-      val scrutineeSym = newSym(InlineScrutineeName.fresh(), Synthetic, scrutType).asTerm
+      val scrutineeSym = newSym(InlineScrutineeName.fresh(), Synthetic, scrutType.collapseTermRef).asTerm
       val scrutineeBinding = normalizeBinding(ValDef(scrutineeSym, scrutinee))
 
       def reduceCase(cdef: CaseDef): MatchRedux = {
