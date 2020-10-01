@@ -766,7 +766,11 @@ class Namer { typer: Typer =>
         desugar.isRetractableCaseClassMethodName(denot.name)
         && isCaseClass(denot.owner)
         && findMatch(denot.owner)
+      var calledEnumClash = false
       def clashingEnumMethod =
+        calledEnumClash = true
+        if denot.name == nme.ordinal then
+          println(i"calling clashingEnumMethod for $denot in ${denot.owner}")
         denot.name == nme.ordinal
         && isJavaEnumBaseClass(denot.owner)
         && findMatch(firstParentCls(denot.owner))
@@ -774,6 +778,10 @@ class Namer { typer: Typer =>
       if (isClashingSynthetic) {
         typr.println(i"invalidating clashing $denot in ${denot.owner}")
         denot.markAbsent()
+        if calledEnumClash then // important, clashingEnumMethod should be the last call to assume that it was true
+          println(i"unlinking $denot in ${denot.owner}. pre: ${denot.owner} has ordinal decls: ${denot.owner.info.decls.filter(_.name == nme.ordinal)}")
+          denot.owner.asClass.delete(denot.symbol)
+          println(i"validate: ${denot.owner} has ordinal decls: ${denot.owner.info.decls.filter(_.name == nme.ordinal)}, member is different: ${denot.owner.info.findMember(denot.name, denot.owner.prefix).symbol != denot.symbol}, is java ordinal: ${denot.owner.info.findMember(denot.name, denot.owner.prefix).symbol == defn.JavaEnumClass.requiredMethod("ordinal")}")
       }
     }
 

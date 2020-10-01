@@ -142,6 +142,8 @@ trait TypeAssigner {
 
     val name = tree.name
     val pre = maybeSkolemizePrefix(qualType, name)
+    if (name == nme.ordinal)
+      println(i"looking for ordinal")
     val mbr = qualType.findMember(name, pre)
     def isDynamicExpansion(tree: untpd.RefTree): Boolean = {
       Dynamic.isDynamicMethod(name) || (
@@ -153,6 +155,8 @@ trait TypeAssigner {
           case _ => false
       )
     }
+    if (name == nme.ordinal)
+      println(i"found member $mbr in ${mbr.symbol.owner}")
     if (reallyExists(mbr))
       qualType.select(name, mbr)
     else if (qualType.derivesFrom(defn.DynamicClass) && name.isTermName && !isDynamicExpansion(tree))
@@ -162,6 +166,9 @@ trait TypeAssigner {
     else if (name == nme.CONSTRUCTOR)
       errorType(ex"$qualType does not have a constructor", tree.srcPos)
     else {
+      if (name == nme.ordinal)
+        println(i"could not find $name in $qualType")//, found $mbr in ${mbr.symbol.owner}")
+        ???
       val kind = if (name.isTypeName) "type" else "value"
       def addendum = err.selectErrorAddendum(tree, qual1, qualType, importSuggestionAddendum)
       errorType(NotAMember(qualType, name, kind, addendum), tree.srcPos)
@@ -520,4 +527,3 @@ trait TypeAssigner {
 
 
 object TypeAssigner extends TypeAssigner
-

@@ -358,6 +358,7 @@ class PostTyper extends MacroTransform with IdentityDenotTransformer { thisPhase
                && !exprTpe.member(sel.name.toTypeName).exists
                && !exprTpe.member(sel.name.toExtensionName).exists then
               report.error(NotAMember(exprTpe, sel.name, "value"), sel.imported.srcPos)
+              ???
             if seen.contains(sel.name) then
               report.error(ImportRenamedTwice(sel.imported), sel.imported.srcPos)
             seen += sel.name

@@ -292,14 +292,14 @@ import ast.tpd
 
       // The names of all non-synthetic, non-private members of `site`
       // that are of the same type/term kind as the missing member.
-      def candidates: Set[String] =
+      def candidates: Set[(Symbol, String)] =
         for
           bc <- site.widen.baseClasses.toSet
           sym <- bc.info.decls.filter(sym =>
             sym.isType == name.isTypeName
             && !sym.isConstructor
             && !sym.flagsUNSAFE.isOneOf(Synthetic | Private))
-        yield sym.name.show
+        yield (bc, sym.name.show)
 
       // Calculate Levenshtein distance
       def distance(s1: String, s2: String): Int =
@@ -317,11 +317,11 @@ import ast.tpd
 
       // A list of possible candidate strings with their Levenstein distances
       // to the name of the missing member
-      def closest: List[(Int, String)] = candidates
+      def closest: List[(Int, (Symbol, String))] = candidates
         .toList
-        .map(n => (distance(n, missing), n))
-        .filter((d, n) => d <= maxDist && d < missing.length && d < n.length)
-        .sorted  // sort by distance first, alphabetically second
+        .map(n => (distance(n._2, missing), n))
+        .filter((d, n) => d <= maxDist && d < missing.length && d < n._2.length)
+        .sortBy((s, bn) => (s, bn._2))  // sort by distance first, alphabetically second
 
       val finalAddendum =
         if addendum.nonEmpty then addendum
@@ -330,7 +330,7 @@ import ast.tpd
             val siteName = site match
               case site: NamedType => site.name.show
               case site => i"$site"
-            s" - did you mean $siteName.$n?"
+            s" - did you mean $siteName.${n(1)}? (where the member was defined in ${n(0)})"
           case Nil => ""
         }
 

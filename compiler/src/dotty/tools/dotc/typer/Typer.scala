@@ -536,6 +536,8 @@ class Typer extends Namer
         case _ => app
       }
     case qual =>
+      if tree.name == nme.ordinal then
+        println("selecting ordinal")
       val select = assignType(cpy.Select(tree)(qual, tree.name), qual)
       val select1 = toNotNullTermRef(select, pt)
 
@@ -554,8 +556,12 @@ class Typer extends Namer
     record("typedSelect")
 
     def typeSelectOnTerm(using Context): Tree =
-      typedSelect(tree, pt, typedExpr(tree.qualifier, selectionProto(tree.name, pt, this)))
+      val nestedCtx = ctx.fresh.setNewTyperState()
+      val qual1 = typedExpr(tree.qualifier, selectionProto(tree.name, pt, this))(using nestedCtx)
+      val res = typedSelect(tree, pt, qual1)(using nestedCtx)
         .computeNullable()
+      nestedCtx.typerState.commit()
+      res
 
     def typeSelectOnType(qual: untpd.Tree)(using Context) =
       typedSelect(untpd.cpy.Select(tree)(qual, tree.name.toTypeName), pt)
@@ -1943,6 +1949,7 @@ class Typer extends Namer
   def typedDefDef(ddef: untpd.DefDef, sym: Symbol)(using Context): Tree = {
     if !sym.info.exists then // it's a discarded synthetic case class method, or ordinal method drop it
       assert(sym.is(Synthetic) && desugar.isRetractableCaseClassOrEnumMethodName(sym.name))
+      report.echo(i"unlinking $sym from ${sym.owner}")
       sym.owner.info.decls.openForMutations.unlink(sym)
       return EmptyTree
     val DefDef(name, tparams, vparamss, tpt, _) = ddef
