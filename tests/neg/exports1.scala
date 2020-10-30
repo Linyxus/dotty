@@ -18,3 +18,7 @@ object D1 extends B:
 object D2 extends B:
   object b2 extends B2
   export b2.f            // error
+
+object D3 extends B:
+  object b2 extends B2
+  export b2.{f => g}     // ok

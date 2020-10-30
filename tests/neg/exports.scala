@@ -32,8 +32,14 @@
 
     def concat[B >: A](other: List[B]): CC[B]
 
-    export this.{concat => ++}   // error: no eligible member
+    export this.{concat => ++}
 
+  }
+
+  class Buf {
+    def addAll(ints: Int*): this.type = this
+    def alias(ints: Int*): this.type = this
+    export this.{addAll => alias} // error: double definition
   }
 
   class Foo {
@@ -48,4 +54,8 @@
   class Bar {
     val baz: Baz = new Baz
     export baz._
+  }
+  class Qux {
+    val qux: Qux = new Qux
+    export qux.{qux => innerQux}
   }

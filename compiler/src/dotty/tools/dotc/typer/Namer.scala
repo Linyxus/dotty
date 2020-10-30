@@ -949,26 +949,28 @@ class Namer { typer: Typer =>
         lazy val wildcardBound = importBound(selectors, isGiven = false)
         lazy val givenBound = importBound(selectors, isGiven = true)
 
-        def whyNoForwarder(mbr: SingleDenotation): String = {
+        def whyNoForwarder(mbr: SingleDenotation, isSameName: Boolean): String = {
           val sym = mbr.symbol
-          if (!sym.isAccessibleFrom(path.tpe)) "is not accessible"
-          else if (sym.isConstructor || sym.is(ModuleClass) || sym.is(Bridge)) SKIP
-          else if (cls.derivesFrom(sym.owner) &&
-                   (sym.owner == cls || !sym.is(Deferred))) i"is already a member of $cls"
-          else if (sym.is(Override))
-            sym.allOverriddenSymbols.find(
-             other => cls.derivesFrom(other.owner) && !other.is(Deferred)) match {
-               case Some(other) => i"overrides ${other.showLocated}, which is already a member of $cls"
-               case None => ""
-            }
+          if !sym.isAccessibleFrom(path.tpe) then "is not accessible"
+          else if sym.isConstructor || sym.is(ModuleClass) || sym.is(Bridge) then SKIP
+          else if isSameName then
+            if cls.derivesFrom(sym.owner) && (sym.owner == cls || !sym.is(Deferred)) then
+              i"is already a member of $cls"
+            else if sym.is(Override) then
+              sym.allOverriddenSymbols.find(
+              other => cls.derivesFrom(other.owner) && !other.is(Deferred)) match {
+                case Some(other) => i"overrides ${other.showLocated}, which is already a member of $cls"
+                case None => ""
+              }
+            else ""
           else ""
         }
 
         /** Add a forwarder with name `alias` or its type name equivalent to `mbr`,
          *  provided `mbr` is accessible and of the right implicit/non-implicit kind.
          */
-        def addForwarder(alias: TermName, mbr: SingleDenotation, span: Span): Unit =
-          if (whyNoForwarder(mbr) == "") {
+        def addForwarder(alias: TermName, isSameName: Boolean, mbr: SingleDenotation, span: Span): Unit =
+          if (whyNoForwarder(mbr, isSameName) == "") {
             val sym = mbr.symbol
             val forwarder =
               if mbr.isType then
@@ -1017,9 +1019,10 @@ class Namer { typer: Typer =>
         def addForwardersNamed(name: TermName, alias: TermName, span: Span): Unit = {
           val size = buf.size
           val mbrs = List(name, name.toTypeName, name.toExtensionName).flatMap(path.tpe.member(_).alternatives)
-          mbrs.foreach(addForwarder(alias, _, span))
+          val isSameName = name == alias
+          mbrs.foreach(addForwarder(alias, isSameName, _, span))
           if (buf.size == size) {
-            val reason = mbrs.map(whyNoForwarder).dropWhile(_ == SKIP) match {
+            val reason = mbrs.map(whyNoForwarder(_, isSameName)).dropWhile(_ == SKIP) match {
               case Nil => ""
               case why :: _ => i"\n$path.$name cannot be exported because it $why"
             }
@@ -1035,7 +1038,7 @@ class Namer { typer: Typer =>
               val alias = mbr.name.toTermName
               if !seen.contains(alias)
                 && mbr.matchesImportBound(if mbr.symbol.is(Given) then givenBound else wildcardBound)
-              then addForwarder(alias, mbr, span)
+              then addForwarder(alias, isSameName = true, mbr, span)
 
         def addForwarders(sels: List[untpd.ImportSelector], seen: List[TermName]): Unit = sels match
           case sel :: sels1 =>

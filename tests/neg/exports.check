@@ -33,19 +33,21 @@
    |                     final def status: => List[String] in class Copier at line 24 and
    |                     final def status: => List[String] in class Copier at line 26
    |                     have the same type after erasure.
--- Error: tests/neg/exports.scala:35:24 --------------------------------------------------------------------------------
-35 |    export this.{concat => ++}   // error: no eligible member
-   |                 ^^^^^^^^^^^^
-   |                 no eligible member concat at this
-   |                 this.concat cannot be exported because it is already a member of trait IterableOps
--- Error: tests/neg/exports.scala:41:15 --------------------------------------------------------------------------------
-41 |    export foo.foo // error: no eligible member
+-- [E120] Naming Error: tests/neg/exports.scala:42:24 ------------------------------------------------------------------
+42 |    export this.{addAll => alias} // error: double definition
+   |                        ^
+   |                        Double definition:
+   |                        def alias(ints: Int*): (Buf.this : Buf) in class Buf at line 41 and
+   |                        final def alias(ints: Int*): (Buf.this : Buf) in class Buf at line 42
+   |                        have the same type after erasure.
+-- Error: tests/neg/exports.scala:47:15 --------------------------------------------------------------------------------
+47 |    export foo.foo // error: no eligible member
    |               ^^^
    |               no eligible member foo at this.foo
    |               this.foo.foo cannot be exported because it is already a member of class Foo
--- [E120] Naming Error: tests/neg/exports.scala:46:15 ------------------------------------------------------------------
-46 |    export bar._  // error: double definition
+-- [E120] Naming Error: tests/neg/exports.scala:52:15 ------------------------------------------------------------------
+52 |    export bar._  // error: double definition
    |               ^
    |               Double definition:
-   |               val bar: Bar in class Baz at line 45 and
-   |               final def bar: => (Baz.this.bar.bar : => (Baz.this.bar.baz.bar : Bar)) in class Baz at line 46
+   |               val bar: Bar in class Baz at line 51 and
+   |               final def bar: => (Baz.this.bar.bar : => (Baz.this.bar.baz.bar : Bar)) in class Baz at line 52
