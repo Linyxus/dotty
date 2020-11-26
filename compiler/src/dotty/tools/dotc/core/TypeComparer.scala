@@ -2443,7 +2443,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
             decompose(cls2, tp2).forall(x => provablyDisjoint(x, tp1))
           else
             false
-      case (AppliedType(tycon1, args1), AppliedType(tycon2, args2)) if tycon1 == tycon2 =>
+      case (AppliedType(tycon1, args1), AppliedType(tycon2, args2)) if isSame(tycon1, tycon2) =>
         // It is possible to conclude that two types applies are disjoint by
         // looking at covariant type parameters if the said type parameters
         // are disjoin and correspond to fields.
@@ -2507,6 +2507,10 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
       case (_, tp2: AndType) =>
         !(tp2 <:< tp1)
         && (provablyDisjoint(tp1, tp2.tp2) || provablyDisjoint(tp1, tp2.tp1))
+      case (tp1: Type, tp2: Type) if defn.isTupleType(tp1) =>
+        provablyDisjoint(tp1.toNestedPairs, tp2)
+      case (tp1: Type, tp2: Type) if defn.isTupleType(tp2) =>
+        provablyDisjoint(tp1, tp2.toNestedPairs)
       case (tp1: TypeProxy, tp2: TypeProxy) =>
         provablyDisjoint(tp1.underlying, tp2) || provablyDisjoint(tp1, tp2.underlying)
       case (tp1: TypeProxy, _) =>
