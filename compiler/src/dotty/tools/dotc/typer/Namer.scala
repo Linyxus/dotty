@@ -1052,7 +1052,17 @@ class Namer { typer: Typer =>
         def addForwardersNamed(name: TermName, alias: TermName, span: Span): Unit = {
           val size = buf.size
           val mbrs = List(name, name.toTypeName).flatMap(path.tpe.member(_).alternatives)
-          mbrs.foreach(addForwarder(alias, _, span))
+          val withAlias = mbrs.flatMap {
+            case mbr if mbr.symbol.is(Mutable) && !mbr.name.isSetterName =>
+              val setterAlias = alias.setterName
+              val setters = path.tpe
+                .memberBasedOnFlags(name.setterName, required=Mutable)
+                .alternatives
+                .filter(_.name.isSetterName)
+              (alias, mbr) :: setters.map((setterAlias, _))
+            case mbr => (alias, mbr) :: Nil
+          }
+          withAlias.foreach(addForwarder(_, _, span))
           if (buf.size == size) {
             val reason = mbrs.map(whyNoForwarder).dropWhile(_ == SKIP) match {
               case Nil => ""
