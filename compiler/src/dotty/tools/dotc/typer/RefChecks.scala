@@ -782,7 +782,53 @@ object RefChecks {
         report.error(problem(), clazz.srcPos)
       }
 
+      // Checks base types of the current clazz against each other
+      //
+      // In particular, it checks that there are no two base classes with
+      // different type instantiations.
+      //
+      // ported from Scala 2:
+      //   https://github.com/scala/scala/blob/9bb659e62a9239c01aec14c171f8598bb1a576fe/src/compiler/scala/tools/nsc/typechecker/RefChecks.scala#L834-L883
+      def validateBaseTypes(): Unit = {
+        val tpe = clazz.thisType // in Scala 2 this was clazz.tpe
+        val seenParents = mutable.HashSet[Type]()
+        val baseClasses: List[ClassSymbol] = clazz.info.baseClasses
+
+        // tracks types that we have seen for a particular base class in baseClasses
+        val seenTypes = mutable.Map.empty[Symbol, List[Type]]
+
+        // validate all base types of a class in reverse linear order.
+        def register(tp: Type): Unit = {
+          val baseClass = tp.typeSymbol
+          if (baseClasses contains baseClass) {
+            val alreadySeen = seenTypes.getOrElse(baseClass, Nil)
+            if (alreadySeen.forall { tp1 => !(tp1 <:< tp) })
+              seenTypes.update(baseClass, tp :: alreadySeen.filter { tp1 => !(tp <:< tp1) })
+          }
+          val remaining = tp.parents filterNot seenParents
+          seenParents ++= remaining
+          remaining foreach register
+        }
+        register(tpe)
+
+        seenTypes.foreach {
+          case (cls, Nil) =>
+            assert(false) // this case should not be reachable
+          case (cls, _ :: Nil) =>
+            () // Ok
+          case (cls, tp1 :: tp2 :: _) =>
+            val msg =
+              em"""illegal inheritance;
+                  |
+                  |  $clazz inherits different type instances of $cls:
+                  |  $tp1 and $tp2"""
+
+            report.error(msg, clazz.srcPos)
+        }
+      }
+
       checkParameterizedTraitsOK()
+      validateBaseTypes()
     }
 
     /** Check that `site` does not inherit conflicting generic instances of `baseCls`,
