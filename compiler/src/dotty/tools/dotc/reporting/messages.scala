@@ -235,6 +235,23 @@ import transform.SymUtils._
     }
   }
 
+
+
+  class MissingCompanionForMirror(cls: Symbol, isSum: Boolean)(using Context)
+  extends DeclarationMsg(MissingCompanionForMirrorID) {
+    def msg = em"""|an anonymous ${if isSum then "sum" else "product"} type Mirror will be generated for $cls,
+                   |which does not declare a companion object.""".stripMargin
+    def explain =
+      em"""|$cls is a type declared without a companion object.
+           |This means that summoning its Mirror from the context
+           |will synthesize a new anonymous instance at each callsite.
+           |In general, a class under the control of the Scala compiler
+           |will have its Mirror cached in its companion object,
+           |if one exists, leading to fewer allocations.
+           |Adding a deriving clause to $cls will create a
+           |companion object even if one is not explicitly declared.""".stripMargin
+  }
+
   class TypeMismatch(found: Type, expected: Type, addenda: => String*)(using Context)
     extends TypeMismatchMsg(TypeMismatchID):
 
