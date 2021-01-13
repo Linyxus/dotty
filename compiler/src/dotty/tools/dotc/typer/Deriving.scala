@@ -31,7 +31,7 @@ trait Deriving {
   class Deriver(cls: ClassSymbol, codePos: SrcPos)(using Context) {
 
     /** A buffer for synthesized symbols for type class instances */
-    private var synthetics = new mutable.ListBuffer[Symbol]
+    private var syntheticDefs = new mutable.ListBuffer[tpd.ValOrDefDef]
 
     /** A version of Type#underlyingClassRef that works also for higher-kinded types */
     private def underlyingClassRef(tp: Type): Type = tp match {
@@ -46,7 +46,47 @@ trait Deriving {
      *  an instance with the same name does not exist already.
      *  @param  reportErrors  Report an error if an instance with the same name exists already
      */
-    private def addDerivedInstance(clsName: Name, info: Type, pos: SrcPos): Unit = {
+    private def addDerivedInstance(clsName: Name, infoFn: Type => Type, resType: Type, pos: SrcPos): Unit = {
+      import tpd._
+
+      /** The type class instance definition with symbol `sym` */
+      def typeclassInstance(sym: Symbol)(using Context): List[List[tpd.Tree]] => tpd.Tree =
+        (paramRefss: List[List[tpd.Tree]]) =>
+          val (tparamRefs, vparamRefss) = splitArgs(paramRefss)
+          val tparamTypes = tparamRefs.tpes
+          val tparams = tparamTypes.map(_.typeSymbol.asType)
+          val vparams = if (vparamRefss.isEmpty) Nil else vparamRefss.head.map(_.symbol.asTerm)
+          tparams.foreach(ctx.enter(_))
+          vparams.foreach(ctx.enter(_))
+          def instantiated(info: Type): Type = info match {
+            case info: PolyType => instantiated(info.instantiate(tparamTypes))
+            case info: MethodType => info.instantiate(vparams.map(_.termRef))
+            case info => info.widenExpr
+          }
+          def companionRef(tp: Type): TermRef = tp match {
+            case tp @ TypeRef(prefix, _) if tp.symbol.isClass =>
+              prefix.select(tp.symbol.companionModule).asInstanceOf[TermRef]
+            case tp: TypeProxy =>
+              companionRef(tp.underlying)
+          }
+          val resultType = instantiated(sym.info)
+          val companion = companionRef(resultType)
+          val module = untpd.ref(companion).withSpan(sym.span)
+          val rhs = untpd.Select(module, nme.derived)
+          if companion.termSymbol.exists then typed(rhs, resultType)
+          else errorTree(rhs, em"$resultType cannot be derived since ${resultType.typeSymbol} has no companion object")
+      end typeclassInstance
+
+      def syntheticDef(sym: Symbol): tpd.ValOrDefDef = inContext(ctx.fresh.setOwner(sym).setNewScope) {
+        if sym.is(Method) then tpd.DefDef(sym.asTerm, typeclassInstance(sym))
+        else tpd.ValDef(sym.asTerm, typeclassInstance(sym)(Nil))
+      }
+
+      def syntheticDefInstantiated(sym: Symbol, rhs: Tree): tpd.ValOrDefDef = inContext(ctx.fresh.setOwner(sym).setNewScope) {
+        if sym.is(Method) then tpd.DefDef(sym.asTerm, _ => rhs)
+        else tpd.ValDef(sym.asTerm, rhs)
+      }
+
       val instanceName = "derived$".concat(clsName)
       if (ctx.denotNamed(instanceName).exists)
         report.error(i"duplicate type class derivation for $clsName", pos)
@@ -54,10 +94,18 @@ trait Deriving {
         // If we set the Synthetic flag here widenGiven will widen too far and the
         // derived instance will have too low a priority to be selected over a freshly
         // derived instance at the summoning site.
+        val info = infoFn(resType)
         val flags = if info.isInstanceOf[MethodOrPoly] then Given | Method else Given | Lazy
-        synthetics +=
-          newSymbol(ctx.owner, instanceName, flags, info, coord = pos.span)
-            .entered
+        val sym = newSymbol(ctx.owner, instanceName, flags, info, coord = pos.span)
+        val ddef = syntheticDef(sym)
+        val rhsTpe = ddef.rhs match
+          case tpd.Typed(rhs, _) =>
+            rhs.tpe
+          case rhs => rhs.tpe
+        val adjustedInfo = infoFn(rhsTpe) // TODO: need to substitute back the param refs
+        sym.info = adjustedInfo
+        sym.entered
+        syntheticDefs += syntheticDefInstantiated(sym, ddef.rhs)
     }
 
     /** Check derived type tree `derived` for the following well-formedness conditions:
@@ -96,13 +144,15 @@ trait Deriving {
 
       def addInstance(derivedParams: List[TypeSymbol], evidenceParamInfos: List[List[Type]], instanceTypes: List[Type]): Unit = {
         val resultType = typeClassType.appliedTo(instanceTypes)
-        val monoInfo =
+        def monoInfo(resultType: Type): Type =
           if evidenceParamInfos.isEmpty then resultType
           else ImplicitMethodType(evidenceParamInfos.map(typeClassType.appliedTo), resultType)
-        val derivedInfo =
-          if derivedParams.isEmpty then monoInfo
-          else PolyType.fromParams(derivedParams, monoInfo)
-        addDerivedInstance(originalTypeClassType.typeSymbol.name, derivedInfo, derived.srcPos)
+        def derivedInfo(resultType: Type): Type =
+          if derivedParams.isEmpty then monoInfo(resultType)
+          else PolyType.fromParams(derivedParams, monoInfo(resultType))
+
+        // TODO - we want to "infer" the result type for this forwarder
+        addDerivedInstance(originalTypeClassType.typeSymbol.name, derivedInfo, resultType, derived.srcPos)
       }
 
       def deriveSingleParameter: Unit = {
@@ -265,46 +315,6 @@ trait Deriving {
      */
     def enterDerived(derived: List[untpd.Tree]) =
       derived.foreach(processDerivedInstance(_))
-
-    /** The synthesized type class instance definitions */
-    def syntheticDefs: List[tpd.Tree] = {
-      import tpd._
-
-      /** The type class instance definition with symbol `sym` */
-      def typeclassInstance(sym: Symbol)(using Context): List[List[tpd.Tree]] => tpd.Tree =
-        (paramRefss: List[List[tpd.Tree]]) =>
-          val (tparamRefs, vparamRefss) = splitArgs(paramRefss)
-          val tparamTypes = tparamRefs.tpes
-          val tparams = tparamTypes.map(_.typeSymbol.asType)
-          val vparams = if (vparamRefss.isEmpty) Nil else vparamRefss.head.map(_.symbol.asTerm)
-          tparams.foreach(ctx.enter(_))
-          vparams.foreach(ctx.enter(_))
-          def instantiated(info: Type): Type = info match {
-            case info: PolyType => instantiated(info.instantiate(tparamTypes))
-            case info: MethodType => info.instantiate(vparams.map(_.termRef))
-            case info => info.widenExpr
-          }
-          def companionRef(tp: Type): TermRef = tp match {
-            case tp @ TypeRef(prefix, _) if tp.symbol.isClass =>
-              prefix.select(tp.symbol.companionModule).asInstanceOf[TermRef]
-            case tp: TypeProxy =>
-              companionRef(tp.underlying)
-          }
-          val resultType = instantiated(sym.info)
-          val companion = companionRef(resultType)
-          val module = untpd.ref(companion).withSpan(sym.span)
-          val rhs = untpd.Select(module, nme.derived)
-          if companion.termSymbol.exists then typed(rhs, resultType)
-          else errorTree(rhs, em"$resultType cannot be derived since ${resultType.typeSymbol} has no companion object")
-      end typeclassInstance
-
-      def syntheticDef(sym: Symbol): Tree = inContext(ctx.fresh.setOwner(sym).setNewScope) {
-        if sym.is(Method) then tpd.DefDef(sym.asTerm, typeclassInstance(sym))
-        else tpd.ValDef(sym.asTerm, typeclassInstance(sym)(Nil))
-      }
-
-      synthetics.map(syntheticDef).toList
-    }
 
     def finalize(stat: tpd.TypeDef): tpd.Tree = {
       val templ @ Template(_, _, _, _) = stat.rhs
