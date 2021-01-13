@@ -322,8 +322,8 @@ class Synthesizer(typer: Typer)(using @constructorOnly c: Context):
       val mirrorRef =
         if useCompanion then companionPath(mirroredType, span)
         else
-          if !cls.is(Scala2x) then
-            report.warning(new reporting.MissingCompanionForMirror(cls, isSum = true), ctx.source.atSpan(span))
+          // if !cls.is(Scala2x) then
+          //   report.warning(new reporting.MissingCompanionForMirror(cls, isSum = true), ctx.source.atSpan(span))
           anonymousMirror(monoType, ExtendsSumMirror, span)
       mirrorRef.cast(mirrorType)
     else EmptyTree
