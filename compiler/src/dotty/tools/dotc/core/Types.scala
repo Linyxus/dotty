@@ -2869,6 +2869,11 @@ object Types {
       assert(!ctx.erasedTypes)
       unique(new CachedRefinedType(parent, name, info)).checkInst
     }
+
+    def hack(parent: Type, name: Name, info: Type)(using Context): RefinedType = {
+      assert(!ctx.erasedTypes)
+      new CachedRefinedType(parent, name, info).checkInst
+    }
   }
 
   /** A recursive type. Instances should be constructed via the companion object.

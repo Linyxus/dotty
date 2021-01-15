@@ -49,6 +49,8 @@ trait Deriving {
     private def addDerivedInstance(clsName: Name, infoFn: Type => Type, resType: Type, pos: SrcPos): Unit = {
       import tpd._
 
+      var foobar: Type => Type = null
+
       /** The type class instance definition with symbol `sym` */
       def typeclassInstance(sym: Symbol)(using Context): List[List[tpd.Tree]] => tpd.Tree =
         (paramRefss: List[List[tpd.Tree]]) =>
@@ -63,11 +65,37 @@ trait Deriving {
             case info: MethodType => info.instantiate(vparams.map(_.termRef))
             case info => info.widenExpr
           }
+          // def uninstantiated(info: Type): Type = info match {
+          //   case info: PolyType => uninstantiated(info.resType.subst(tparamTypes.map(_.typeSymbol), info.paramInfos))
+          //   case info: MethodType => info.resType.subst(vparams, info.paramInfos)
+          //   case info => info.widenExpr
+          // }
+          def uninstantiated(info: Type, accl: List[Type], accr: List[Type]): (List[Type], List[Type]) = info match {
+            case info: PolyType => uninstantiated(info.resType, info.paramRefs, accr)
+            case info: MethodType => uninstantiated(info.resType, accl, info.paramRefs)
+            case info => (accl, accr)
+          }
           def companionRef(tp: Type): TermRef = tp match {
             case tp @ TypeRef(prefix, _) if tp.symbol.isClass =>
               prefix.select(tp.symbol.companionModule).asInstanceOf[TermRef]
             case tp: TypeProxy =>
               companionRef(tp.underlying)
+          }
+          foobar = { tp =>
+            val (tps, vps) = uninstantiated(sym.info, Nil, Nil)
+            def inst(info: Type): Type = info match
+              case tp @ RefinedType(pre, name, reftp) => inst(pre) // RefinedType(inst(pre), name, reftp)
+              case tp =>
+                var res = tp
+                if tps.nonEmpty then
+                  val tpss = tparamTypes.map(_.typeSymbol)
+                  report.echo(i"subst ${tpss.map(_.show)} for ${tps}")
+                  res = res.subst(tpss, tps)
+                if vps.nonEmpty then
+                  res = res.subst(vparams, vps)
+                res
+            end inst
+            inst(tp)
           }
           val resultType = instantiated(sym.info)
           val companion = companionRef(resultType)
@@ -76,6 +104,38 @@ trait Deriving {
           if companion.termSymbol.exists then typed(rhs, resultType)
           else errorTree(rhs, em"$resultType cannot be derived since ${resultType.typeSymbol} has no companion object")
       end typeclassInstance
+
+      // def typeclassInstance2(sym: Symbol, rhs: tpd.Tree)(using Context): List[List[tpd.Tree]] => tpd.Tree =
+      //   (paramRefss: List[List[tpd.Tree]]) =>
+      //     val (tparamRefs, vparamRefss) = splitArgs(paramRefss)
+      //     val tparamTypes = tparamRefs.tpes
+      //     val tparams = tparamTypes.map(_.typeSymbol.asType)
+      //     val vparams = if (vparamRefss.isEmpty) Nil else vparamRefss.head.map(_.symbol.asTerm)
+      //     tparams.foreach(ctx.enter(_))
+      //     vparams.foreach(ctx.enter(_))
+      //     def instantiated(info: Type): Type = info match {
+      //       case info: PolyType => instantiated(info.instantiate(tparamTypes))
+      //       case info: MethodType => info.instantiate(vparams.map(_.termRef))
+      //       case info => info.widenExpr
+      //     }
+      //     def uninstantiated(info: Type): Type = info match {
+      //       case info: PolyType => instantiated(info.resType.subst(tparamTypes.map(_.typeSymbol), info.paramInfos))
+      //       case info: MethodType => info.resType.subst(vparams, info.paramInfos)
+      //       case info => info.widenExpr
+      //     }
+      //     def companionRef(tp: Type): TermRef = tp match {
+      //       case tp @ TypeRef(prefix, _) if tp.symbol.isClass =>
+      //         prefix.select(tp.symbol.companionModule).asInstanceOf[TermRef]
+      //       case tp: TypeProxy =>
+      //         companionRef(tp.underlying)
+      //     }
+      //     val resultType = instantiated(sym.info)
+      //     val companion = companionRef(resultType)
+      //     val module = untpd.ref(companion).withSpan(sym.span)
+      //     val rhs = untpd.Select(module, nme.derived)
+      //     if companion.termSymbol.exists then typed(rhs, resultType)
+      //     else errorTree(rhs, em"$resultType cannot be derived since ${resultType.typeSymbol} has no companion object")
+      // end typeclassInstance2
 
       def syntheticDef(sym: Symbol): tpd.ValOrDefDef = inContext(ctx.fresh.setOwner(sym).setNewScope) {
         if sym.is(Method) then tpd.DefDef(sym.asTerm, typeclassInstance(sym))
@@ -95,6 +155,7 @@ trait Deriving {
         // derived instance will have too low a priority to be selected over a freshly
         // derived instance at the summoning site.
         val info = infoFn(resType)
+        report.echo(i"begin with $info")
         val flags = if info.isInstanceOf[MethodOrPoly] then Given | Method else Given | Lazy
         val sym = newSymbol(ctx.owner, instanceName, flags, info, coord = pos.span)
         val ddef = syntheticDef(sym)
@@ -102,7 +163,11 @@ trait Deriving {
           case tpd.Typed(rhs, _) =>
             rhs.tpe
           case rhs => rhs.tpe
-        val adjustedInfo = infoFn(rhsTpe) // TODO: need to substitute back the param refs
+        report.echo(i"inferred result of $rhsTpe")
+        val adjustedInfo = infoFn(foobar(rhsTpe)) // TODO: need to substitute back the param refs
+        report.echo(i"end with ${info.appliedTo(defn.IntType).normalized}")
+        report.echo(i"alt = ${adjustedInfo}")
+        report.echo(i"alt with ${adjustedInfo.appliedTo(defn.IntType).normalized}")
         sym.info = adjustedInfo
         sym.entered
         syntheticDefs += syntheticDefInstantiated(sym, ddef.rhs)
@@ -143,6 +208,7 @@ trait Deriving {
         report.error(i"${cls.name} cannot be unified with the type argument of ${typeClass.name}", derived.srcPos)
 
       def addInstance(derivedParams: List[TypeSymbol], evidenceParamInfos: List[List[Type]], instanceTypes: List[Type]): Unit = {
+        report.echo(i"add instance in ${instanceTypes.map(_.show)}, tparam: [${derivedParams.map(_.show)}]")
         val resultType = typeClassType.appliedTo(instanceTypes)
         def monoInfo(resultType: Type): Type =
           if evidenceParamInfos.isEmpty then resultType
