@@ -2000,6 +2000,7 @@ class Typer extends Namer
       return EmptyTree
     }
     val DefDef(name, paramss, tpt, _) = ddef
+    // report.echo(i"typed def def $ddef: ${sym.info}")
     completeAnnotations(ddef, sym)
     val paramss1 = paramss.nestedMapConserve(typed(_)).asInstanceOf[List[ParamClause]]
     for case ValDefs(vparams) <- paramss1 do
