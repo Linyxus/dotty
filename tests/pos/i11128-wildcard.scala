@@ -8,8 +8,13 @@ object Outer {
 
   class Bar
 
+  class Qux(i: Int)
+  object Qux
+
 }
 
 import Outer._
 
-val wrapBar = new Wrap.Bar()
+val wrapBar = Wrap.Bar()
+
+val wrapQux = Wrap.Qux(23)
