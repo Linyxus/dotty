@@ -331,6 +331,61 @@ object TastyFormat {
     }
   }
 
+  def encodeScalaVersion(major: Int, minor: Int, patch: Int, release: Int): Long = {
+    var res = 0l
+    res |= ((major.toLong   & 0x000000000000FFFFL) << 48)
+    res |= ((minor.toLong   & 0x000000000000FFFFL) << 32)
+    res |= ((patch.toLong   & 0x000000000000FFFFL) << 16)
+    res |= (release.toLong  & 0x000000000000FFFFL)
+    res
+  }
+
+  def encodeRelease(experimental: Int, kind: Int, value: Int): Int = {
+    var res = 0
+    res |= (experimental & 0x0000003)
+    res |= (kind & 0x0000003) << 2
+    res |= (value & 0x00000FFF) << 4
+    res
+  }
+
+  object DecodeScalaVersion {
+    def major(version: Long): Int =
+      ((version & 0xFFFF000000000000L) >> 48).toInt
+    def minor(version: Long): Int =
+      ((version & 0x0000FFFF00000000L) >> 32).toInt
+    def patch(version: Long): Int =
+      ((version & 0x00000000FFFF0000L) >> 16).toInt
+    def release(version: Long): Int =
+      (version & 0x000000000000FFFFL).toInt
+  }
+
+  object DecodeRelease {
+    def experimental(extra: Int): Int =
+      extra & 0x0000003
+    def kind(extra: Int): Int =
+      (extra & 0x000000C) >> 2
+    def patch(extra: Int): Int =
+      (extra & 0x0000FFF0) >> 4
+  }
+
+  class ExperimentalTags {
+    // reserved tags range 0-3
+    final val EMPTY = 0
+    final val SNAPSHOT = 1
+    final val NIGHTLY = 2
+    final val UNKNOWN = 3
+  }
+  object ExperimentalTags extends ExperimentalTags
+
+  class ReleaseTags {
+    // reserved tags range 0-3
+    final val FINAL = 0
+    final val MILESTONE = 1
+    final val RELEASEcandidate = 2
+    final val UNKNOWN = 3
+  }
+  object ReleaseTags extends ReleaseTags
+
   // Position header
 
   final val SOURCE = 4
