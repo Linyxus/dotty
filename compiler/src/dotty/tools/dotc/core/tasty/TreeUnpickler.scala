@@ -1055,8 +1055,6 @@ class TreeUnpickler(reader: TastyReader,
       }
 
       def makeSelect(qual: Tree, name: Name, denot: Denotation): Select =
-        // if ctx.source.name.startsWith("hashsetremove") then
-        //   report.echo(i"select $denot from $qual.$name")
         var qualType = qual.tpe.widenIfUnstable
         val owner = denot.symbol.maybeOwner
         if (owner.isPackageObject && qualType.termSymbol.is(Package))
@@ -1078,14 +1076,7 @@ class TreeUnpickler(reader: TastyReader,
 
       def accessibleDenot(qualType: Type, name: Name, sig: Signature, target: Name) = {
         val pre = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
-        // if ctx.source.name.startsWith("hashsetremove") then
-        //   report.echo(i"accessibleDenot $name @ $sig from $pre")
-        val d0 = qualType.findMember(name, pre)
-        // if ctx.source.name.startsWith("hashsetremove") then
-        //   report.echo(i"d0 = $d0")
-        val d = d0.atSignature(sig, target)
-        // if ctx.source.name.startsWith("hashsetremove") then
-        //   report.echo(i"d = $d")
+        val d = qualType.findMember(name, pre).atSignature(sig, target)
         if (!d.symbol.exists || d.symbol.isAccessibleFrom(pre)) d
         else qualType.findMember(name, pre, excluded = Private).atSignature(sig, target)
       }
@@ -1186,13 +1177,7 @@ class TreeUnpickler(reader: TastyReader,
               val levels = readNat()
               readTerm().outerSelect(levels, SkolemType(readType()))
             case SELECTin =>
-              // TODO: FromTastyTest failures:
-              // ================================================================================
-              // Test Report
-              // ================================================================================
-
-
-              // tests/run/hashsetremove.scala
+              // tests/run/hashsetremove.scala failed
               var sname = readName()
               val qual = readTerm()
               val qualType = qual.tpe.widenIfUnstable
@@ -1204,13 +1189,9 @@ class TreeUnpickler(reader: TastyReader,
               sname match
                 case SignedName(name, sig, target) =>
                   val pre = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
-                  val isAmbiguous =
-                    val denot = pre.nonPrivateMember(name)
-                    denot.isOverloaded || !denot.atSignature(sig, target).exists
-                  // if ctx.source.name.startsWith("hashsetremove") then
-                  //   report.echo(i"select $name at $sig isAmbig? $isAmbiguous - ${pre.nonPrivateMember(name)}")
+                  val isAmbiguous = pre.nonPrivateMember(name).isOverloaded
                   if isAmbiguous then
-                    selectAmbiguous(name, pre, space.decl(name).atSignature(sig, target))
+                    makeSelect(qual, name, space.decl(name).atSignature(sig, target).asSeenFrom(pre))
                   else
                     select(name, sig, target)
                 case name =>
