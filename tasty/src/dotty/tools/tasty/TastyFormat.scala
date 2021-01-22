@@ -80,7 +80,6 @@ Standard-Section: "ASTs" TopLevelStat*
 
   Term          = Path                                                             -- Paths represent both types and terms
                   IDENT                 NameRef Type                               -- Used when term ident’s type is not a TermRef
-                  SELECT                possiblySigned_NameRef qual_Term           -- qual.name
                   SELECTin       Length possiblySigned_NameRef qual_Term owner_Type -- qual.name, referring to a symbol declared in owner that has the given signature (see note below)
                   QUALTHIS              typeIdent_Tree                             -- id.this, different from THIS in that it contains a qualifier ident with position.
                   NEW                   clsType_Term                               -- new cls
@@ -263,7 +262,7 @@ Standard Section: "Comments" Comment*
 object TastyFormat {
 
   final val header: Array[Int] = Array(0x5C, 0xA1, 0xAB, 0x1F)
-  val MajorVersion: Int = 27
+  val MajorVersion: Int = 28
   val MinorVersion: Int = 0
 
   final val ASTsSection = "ASTs"
@@ -423,7 +422,6 @@ object TastyFormat {
 
   final val IDENT = 110
   final val IDENTtpt = 111
-  final val SELECT = 112
   final val SELECTtpt = 113
   final val TERMREFsymbol = 114
   final val TERMREF = 115
@@ -629,7 +627,6 @@ object TastyFormat {
 
     case IDENT => "IDENT"
     case IDENTtpt => "IDENTtpt"
-    case SELECT => "SELECT"
     case SELECTtpt => "SELECTtpt"
     case TERMREFsymbol => "TERMREFsymbol"
     case TERMREF => "TERMREF"

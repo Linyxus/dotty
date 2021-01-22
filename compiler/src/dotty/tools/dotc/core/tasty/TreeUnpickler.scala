@@ -1063,6 +1063,8 @@ class TreeUnpickler(reader: TastyReader,
           case name: TypeName => TypeRef(qualType, name, denot)
           case name: TermName => TermRef(qualType, name, denot)
         }
+        if ctx.source.name.startsWith("i") && name.isTermName then
+          report.echo(i"""complete select $qual.$name as $tpe""")
         ConstFold.Select(untpd.Select(qual, name).withType(tpe))
 
       def completeSelect(name: Name, sig: Signature, target: Name): Select =
@@ -1088,11 +1090,6 @@ class TreeUnpickler(reader: TastyReader,
           untpd.Ident(readName()).withType(readType())
         case IDENTtpt =>
           untpd.Ident(readName().toTypeName).withType(readType())
-        case SELECT =>
-          readName() match {
-            case SignedName(name, sig, target) => completeSelect(name, sig, target)
-            case name => completeSelect(name, Signature.NotAMethod, EmptyTermName)
-          }
         case SELECTtpt =>
           val name = readName().toTypeName
           completeSelect(name, Signature.NotAMethod, EmptyTermName)
@@ -1182,17 +1179,39 @@ class TreeUnpickler(reader: TastyReader,
               val levels = readNat()
               readTerm().outerSelect(levels, SkolemType(readType()))
             case SELECTin =>
+              // TODO: FromTastyTest failures:
+              // ================================================================================
+              // Test Report
+              // ================================================================================
+
+              // tests/run/eff-dependent.scala failed
+              // tests/pos/conversion-function-prototype.scala failed
+              // tests/pos/i8516.scala failed
+              // tests/pos/avoid.scala failed
+              // tests/pos/i7872.scala failed
+              // tests/pos/i5980.scala failed
+              // tests/pos/i5418.scala failed
+              // tests/pos/depfuntype.scala failed
+              // tests/pos/i5720.scala failed
+              // tests/pos/i7807.scala failed
               var sname = readName()
               val qual = readTerm()
-              val owner = readType()
+              val qualType = qual.tpe.widenIfUnstable
+              val space = if currentAddr == end then ??? else readType()
               def select(name: Name, denot: Denotation) =
-                val prefix = ctx.typeAssigner.maybeSkolemizePrefix(qual.tpe.widenIfUnstable, name)
+                val prefix = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
                 makeSelect(qual, name, denot.asSeenFrom(prefix))
               sname match
                 case SignedName(name, sig, target) =>
-                  select(name, owner.decl(name).atSignature(sig, target))
+                  // val isAmbiguous = qualType.nonPrivateMember(name) match
+                  //   case d: MultiDenotation => d.atSignature(sig, target).isInstanceOf[MultiDenotation]
+                  //   case _ => false
+                  // if isAmbiguous then
+                  //   select(name, space.decl(name).atSignature(sig, target))
+                  // else
+                    completeSelect(name, sig, target)
                 case name =>
-                  select(name, owner.decl(name))
+                  completeSelect(name, Signature.NotAMethod, EmptyTermName)
             case REPEATED =>
               val elemtpt = readTpt()
               SeqLiteral(until(end)(readTerm()), elemtpt)
