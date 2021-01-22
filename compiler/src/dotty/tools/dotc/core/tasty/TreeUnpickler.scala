@@ -1063,8 +1063,6 @@ class TreeUnpickler(reader: TastyReader,
           case name: TypeName => TypeRef(qualType, name, denot)
           case name: TermName => TermRef(qualType, name, denot)
         }
-        if ctx.source.name.startsWith("i") && name.isTermName then
-          report.echo(i"""complete select $qual.$name as $tpe""")
         ConstFold.Select(untpd.Select(qual, name).withType(tpe))
 
       def completeSelect(name: Name, sig: Signature, target: Name): Select =
@@ -1197,21 +1195,23 @@ class TreeUnpickler(reader: TastyReader,
               var sname = readName()
               val qual = readTerm()
               val qualType = qual.tpe.widenIfUnstable
-              val space = if currentAddr == end then ??? else readType()
-              def select(name: Name, denot: Denotation) =
-                val prefix = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
-                makeSelect(qual, name, denot.asSeenFrom(prefix))
+              val space = if currentAddr == end then qualType else readType()
+              def selectAmbiguous(name: Name, pre: Type, denot: Denotation) =
+                makeSelect(qual, name, denot.asSeenFrom(pre))
+              def select(name: Name, sig: Signature, target: Name) =
+                makeSelect(qual, name, accessibleDenot(qualType, name, sig, target))
               sname match
                 case SignedName(name, sig, target) =>
-                  // val isAmbiguous = qualType.nonPrivateMember(name) match
-                  //   case d: MultiDenotation => d.atSignature(sig, target).isInstanceOf[MultiDenotation]
-                  //   case _ => false
-                  // if isAmbiguous then
-                  //   select(name, space.decl(name).atSignature(sig, target))
-                  // else
-                    completeSelect(name, sig, target)
+                  val pre = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
+                  val isAmbiguous = pre.nonPrivateMember(name).isOverloaded
+                  if ctx.source.name.startsWith("i9050") then
+                    report.echo(i"select $name at $sig isAmbig? $isAmbiguous")
+                  if isAmbiguous then
+                    selectAmbiguous(name, pre, space.decl(name).atSignature(sig, target))
+                  else
+                    select(name, sig, target)
                 case name =>
-                  completeSelect(name, Signature.NotAMethod, EmptyTermName)
+                  select(name, Signature.NotAMethod, EmptyTermName)
             case REPEATED =>
               val elemtpt = readTpt()
               SeqLiteral(until(end)(readTerm()), elemtpt)

@@ -13,39 +13,39 @@ class FromTastyTests {
   import TestConfiguration._
   import FromTastyTests._
 
-  @Test def posTmpTestFromTasty: Unit = {
-    // Can be reproduced with
-    // > sbt
-    // > scalac -Ythrough-tasty -Ycheck:all <source>
-
-    implicit val testGroup: TestGroup = TestGroup("posTmpTestFromTasty")
-    compileTastyInDir(s"tests${JFile.separator}pos-tmp", defaultOptions,
-      fromTastyFilter = FileFilter.exclude(TestSources.posFromTastyBlacklisted)
-    ).checkCompile()
-  }
-
-  // @Test def posTestFromTasty: Unit = {
+  // @Test def posTmpTestFromTasty: Unit = {
   //   // Can be reproduced with
   //   // > sbt
   //   // > scalac -Ythrough-tasty -Ycheck:all <source>
 
-  //   implicit val testGroup: TestGroup = TestGroup("posTestFromTasty")
-  //   compileTastyInDir(s"tests${JFile.separator}pos", defaultOptions,
+  //   implicit val testGroup: TestGroup = TestGroup("posTmpTestFromTasty")
+  //   compileTastyInDir(s"tests${JFile.separator}pos-tmp", defaultOptions,
   //     fromTastyFilter = FileFilter.exclude(TestSources.posFromTastyBlacklisted)
   //   ).checkCompile()
   // }
 
-  // @Test def runTestFromTasty: Unit = {
-  //   // Can be reproduced with
-  //   // > sbt
-  //   // > scalac -Ythrough-tasty -Ycheck:all <source>
-  //   // > scala Test
+  @Test def posTestFromTasty: Unit = {
+    // Can be reproduced with
+    // > sbt
+    // > scalac -Ythrough-tasty -Ycheck:all <source>
 
-  //   implicit val testGroup: TestGroup = TestGroup("runTestFromTasty")
-  //   compileTastyInDir(s"tests${JFile.separator}run", defaultOptions,
-  //     fromTastyFilter = FileFilter.exclude(TestSources.runFromTastyBlacklisted)
-  //   ).checkRuns()
-  // }
+    implicit val testGroup: TestGroup = TestGroup("posTestFromTasty")
+    compileTastyInDir(s"tests${JFile.separator}pos", defaultOptions,
+      fromTastyFilter = FileFilter.exclude(TestSources.posFromTastyBlacklisted)
+    ).checkCompile()
+  }
+
+  @Test def runTestFromTasty: Unit = {
+    // Can be reproduced with
+    // > sbt
+    // > scalac -Ythrough-tasty -Ycheck:all <source>
+    // > scala Test
+
+    implicit val testGroup: TestGroup = TestGroup("runTestFromTasty")
+    compileTastyInDir(s"tests${JFile.separator}run", defaultOptions,
+      fromTastyFilter = FileFilter.exclude(TestSources.runFromTastyBlacklisted)
+    ).checkRuns()
+  }
 }
 
 object FromTastyTests extends ParallelTesting {

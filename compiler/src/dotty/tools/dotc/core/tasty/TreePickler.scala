@@ -425,8 +425,6 @@ class TreePickler(pickler: TastyPickler) {
                   pickleTree(qual)
                   if tree.symbol.exists then
                     pickleType(tree.symbol.owner.typeRef)
-                  // else
-                  //   pickleType(defn.NothingType)
                 }
           }
         case Apply(fun, args) =>

@@ -169,7 +169,7 @@ class Scala2Unpickler(bytes: Array[Byte], classRoot: ClassDenotation, moduleClas
 
   protected def handleRuntimeException(ex: RuntimeException)(using Context): Nothing = ex match {
     case ex: BadSignature => throw ex
-    case _ => errorBadSignature(s"a runtime exception occurred: $ex", Some(ex))
+    case _ => errorBadSignature(s"a runtime exception occurred: $ex at ${ex.getStackTrace.mkString("\n")}", Some(ex))
   }
 
   def run()(using Context): Unit =
