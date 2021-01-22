@@ -1055,6 +1055,8 @@ class TreeUnpickler(reader: TastyReader,
       }
 
       def makeSelect(qual: Tree, name: Name, denot: Denotation): Select =
+        // if ctx.source.name.startsWith("hashsetremove") then
+        //   report.echo(i"select $denot from $qual.$name")
         var qualType = qual.tpe.widenIfUnstable
         val owner = denot.symbol.maybeOwner
         if (owner.isPackageObject && qualType.termSymbol.is(Package))
@@ -1076,7 +1078,14 @@ class TreeUnpickler(reader: TastyReader,
 
       def accessibleDenot(qualType: Type, name: Name, sig: Signature, target: Name) = {
         val pre = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
-        val d = qualType.findMember(name, pre).atSignature(sig, target)
+        // if ctx.source.name.startsWith("hashsetremove") then
+        //   report.echo(i"accessibleDenot $name @ $sig from $pre")
+        val d0 = qualType.findMember(name, pre)
+        // if ctx.source.name.startsWith("hashsetremove") then
+        //   report.echo(i"d0 = $d0")
+        val d = d0.atSignature(sig, target)
+        // if ctx.source.name.startsWith("hashsetremove") then
+        //   report.echo(i"d = $d")
         if (!d.symbol.exists || d.symbol.isAccessibleFrom(pre)) d
         else qualType.findMember(name, pre, excluded = Private).atSignature(sig, target)
       }
@@ -1182,16 +1191,8 @@ class TreeUnpickler(reader: TastyReader,
               // Test Report
               // ================================================================================
 
-              // tests/run/eff-dependent.scala failed
-              // tests/pos/conversion-function-prototype.scala failed
-              // tests/pos/i8516.scala failed
-              // tests/pos/avoid.scala failed
-              // tests/pos/i7872.scala failed
-              // tests/pos/i5980.scala failed
-              // tests/pos/i5418.scala failed
-              // tests/pos/depfuntype.scala failed
-              // tests/pos/i5720.scala failed
-              // tests/pos/i7807.scala failed
+
+              // tests/run/hashsetremove.scala
               var sname = readName()
               val qual = readTerm()
               val qualType = qual.tpe.widenIfUnstable
@@ -1203,9 +1204,11 @@ class TreeUnpickler(reader: TastyReader,
               sname match
                 case SignedName(name, sig, target) =>
                   val pre = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
-                  val isAmbiguous = pre.nonPrivateMember(name).isOverloaded
-                  if ctx.source.name.startsWith("i9050") then
-                    report.echo(i"select $name at $sig isAmbig? $isAmbiguous")
+                  val isAmbiguous =
+                    val denot = pre.nonPrivateMember(name)
+                    denot.isOverloaded || !denot.atSignature(sig, target).exists
+                  // if ctx.source.name.startsWith("hashsetremove") then
+                  //   report.echo(i"select $name at $sig isAmbig? $isAmbiguous - ${pre.nonPrivateMember(name)}")
                   if isAmbiguous then
                     selectAmbiguous(name, pre, space.decl(name).atSignature(sig, target))
                   else
