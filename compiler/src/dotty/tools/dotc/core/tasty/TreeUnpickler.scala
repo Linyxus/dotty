@@ -1076,9 +1076,10 @@ class TreeUnpickler(reader: TastyReader,
 
       def accessibleDenot(qualType: Type, name: Name, sig: Signature, target: Name) = {
         val pre = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
-        val d = qualType.findMember(name, pre).atSignature(sig, target)
-        if (!d.symbol.exists || d.symbol.isAccessibleFrom(pre)) d
-        else qualType.findMember(name, pre, excluded = Private).atSignature(sig, target)
+        val d = qualType.decl(name).atSignature(sig, target)
+        if !d.symbol.exists then d
+        else if d.symbol.isAccessibleFrom(pre) then d.asSeenFrom(pre)
+        else qualType.nonPrivateDecl(name).atSignature(sig, target).asSeenFrom(pre)
       }
 
       def readSimpleTerm(): Tree = tag match {
@@ -1178,6 +1179,12 @@ class TreeUnpickler(reader: TastyReader,
               readTerm().outerSelect(levels, SkolemType(readType()))
             case SELECTin =>
               // tests/run/hashsetremove.scala failed
+              import java.io._
+              import java.nio.charset.StandardCharsets
+              def writeBytes( data : String, file : File ) = {
+                val target = new BufferedOutputStream( new FileOutputStream(file) );
+                try target.write(data.getBytes(StandardCharsets.UTF_8)) finally target.close;
+              }
               var sname = readName()
               val qual = readTerm()
               val qualType = qual.tpe.widenIfUnstable
@@ -1186,16 +1193,25 @@ class TreeUnpickler(reader: TastyReader,
                 makeSelect(qual, name, denot.asSeenFrom(pre))
               def select(name: Name, sig: Signature, target: Name) =
                 makeSelect(qual, name, accessibleDenot(qualType, name, sig, target))
-              sname match
+              val res = sname match
                 case SignedName(name, sig, target) =>
                   val pre = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
                   val isAmbiguous = pre.nonPrivateMember(name).isOverloaded
                   if isAmbiguous then
+                    // writeBytes(TastyPrinter.show(reader.bytes), new File("WOW123.txt"))
+                    // val d0 = pre.nonPrivateMember(name)
+                    // val d0_1 = d0.atSignature(sig, target)
+                    // val d0_2 = d0_1.asSeenFrom(pre)
+                    // val d1 = space.decl(name)
+                    // val d1_1 = d1.atSignature(sig, target)
+                    // val d1_2 = d1_1.asSeenFrom(pre)
+                    // report.echo(s"[$d0, $d0_1, $d0_2] [$d1, $d1_1, $d1_2]")
                     makeSelect(qual, name, space.decl(name).atSignature(sig, target).asSeenFrom(pre))
                   else
                     select(name, sig, target)
                 case name =>
                   select(name, Signature.NotAMethod, EmptyTermName)
+              res
             case REPEATED =>
               val elemtpt = readTpt()
               SeqLiteral(until(end)(readTerm()), elemtpt)
