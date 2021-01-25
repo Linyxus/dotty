@@ -1177,6 +1177,15 @@ class TreeUnpickler(reader: TastyReader,
               val levels = readNat()
               readTerm().outerSelect(levels, SkolemType(readType()))
             case SELECTin =>
+              // ================================================================================
+              // Test Report
+              // ================================================================================
+
+              // 3 suites passed, 1 failed, 4 total
+              //     tests/pos/avoid.scala failed
+              //     tests/pos/i5418.scala failed
+              //     tests/pos/i5980.scala failed
+              val srcnme = "???"
               var symname = readName()
               var precisesig = readName() match
                 case SignedName(_, sig, _) => sig
@@ -1184,9 +1193,19 @@ class TreeUnpickler(reader: TastyReader,
               val qual = readTerm()
               val qualType = qual.tpe.widenIfUnstable
               val space = if currentAddr == end then qualType else readType()
-              def selectAmbiguous(name: Name, pre: Type, denot: Denotation) =
-                makeSelect(qual, name, denot.asSeenFrom(pre))
               def select(name: Name, sig: Signature, target: Name) =
+                def accessibleDenot(qualType: Type, name: Name, sig: Signature, target: Name) = {
+                  val pre = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
+                  val d1 = qualType.findMember(name, pre)
+                  if !d1.isOverloaded && !d1.atSignature(sig, target).symbol.exists then
+                    // TODO: workaround for refined types
+                    d1
+                  else
+                    val d = space.decl(name).atSignature(sig, target)
+                    if !d.symbol.exists then d
+                    else if d.symbol.isAccessibleFrom(pre) then d.asSeenFrom(pre)
+                    else space.nonPrivateDecl(name).atSignature(sig, target).asSeenFrom(pre)
+                }
                 makeSelect(qual, name, accessibleDenot(qualType, name, sig, target))
               val res = symname match
                 case SignedName(name, sig, target) =>
@@ -1194,12 +1213,17 @@ class TreeUnpickler(reader: TastyReader,
                   assert(precisesig != Signature.NotAMethod)
                   val isAmbiguous = pre.nonPrivateMember(name).match
                     case d: MultiDenotation =>
-                      d.atSignature(precisesig, target).isInstanceOf[MultiDenotation]
+                      d.atSignature(sig, target).isInstanceOf[MultiDenotation]
                     case _ => false
                   if isAmbiguous then
+                    if ctx.source.name.startsWith(srcnme) then
+                      val diff = if sig != precisesig then i"$sig => $precisesig" else i"$sig"
+                      report.error(i"$qual . $name differs ambiguously: [$diff]")
                     makeSelect(qual, name, space.decl(name).atSignature(sig, target).asSeenFrom(pre))
                   else
-                    select(name, precisesig, target)
+                    if ctx.source.name.startsWith(srcnme) && sig != precisesig then
+                      report.error(i"$qual . $name differs: [$sig => $precisesig]")
+                    select(name, sig, target)
                 case name =>
                   select(name, Signature.NotAMethod, EmptyTermName)
               res
