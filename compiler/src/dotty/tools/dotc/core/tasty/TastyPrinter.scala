@@ -90,7 +90,9 @@ class TastyPrinter(bytes: Array[Byte]) {
               printName(); printName()
             case VALDEF | DEFDEF | TYPEDEF | TYPEPARAM | PARAM | NAMEDARG | BIND =>
               printName(); printTrees()
-            case REFINEDtype | TERMREFin | TYPEREFin | SELECTin =>
+            case SELECTin =>
+              printName(); printName(); printTree(); printTrees()
+            case REFINEDtype | TERMREFin | TYPEREFin =>
               printName(); printTree(); printTrees()
             case RETURN | HOLE =>
               printNat(); printTrees()

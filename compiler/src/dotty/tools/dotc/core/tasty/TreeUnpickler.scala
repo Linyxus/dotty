@@ -1177,13 +1177,6 @@ class TreeUnpickler(reader: TastyReader,
               val levels = readNat()
               readTerm().outerSelect(levels, SkolemType(readType()))
             case SELECTin =>
-              // tests/run/hashsetremove.scala failed
-              import java.io._
-              import java.nio.charset.StandardCharsets
-              def writeBytes( data : String, file : File ) = {
-                val target = new BufferedOutputStream( new FileOutputStream(file) );
-                try target.write(data.getBytes(StandardCharsets.UTF_8)) finally target.close;
-              }
               var symname = readName()
               var precisesig = readName() match
                 case SignedName(_, sig, _) => sig
@@ -1204,14 +1197,6 @@ class TreeUnpickler(reader: TastyReader,
                       d.atSignature(precisesig, target).isInstanceOf[MultiDenotation]
                     case _ => false
                   if isAmbiguous then
-                    // writeBytes(TastyPrinter.show(reader.bytes), new File("WOW123.txt"))
-                    // val d0 = pre.nonPrivateMember(name)
-                    // val d0_1 = d0.atSignature(sig, target)
-                    // val d0_2 = d0_1.asSeenFrom(pre)
-                    // val d1 = space.decl(name)
-                    // val d1_1 = d1.atSignature(sig, target)
-                    // val d1_2 = d1_1.asSeenFrom(pre)
-                    // report.echo(s"[$d0, $d0_1, $d0_2] [$d1, $d1_1, $d1_2]")
                     makeSelect(qual, name, space.decl(name).atSignature(sig, target).asSeenFrom(pre))
                   else
                     select(name, precisesig, target)

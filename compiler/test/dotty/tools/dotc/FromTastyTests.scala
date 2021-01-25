@@ -13,17 +13,6 @@ class FromTastyTests {
   import TestConfiguration._
   import FromTastyTests._
 
-  // @Test def posTmpTestFromTasty: Unit = {
-  //   // Can be reproduced with
-  //   // > sbt
-  //   // > scalac -Ythrough-tasty -Ycheck:all <source>
-
-  //   implicit val testGroup: TestGroup = TestGroup("posTmpTestFromTasty")
-  //   compileTastyInDir(s"tests${JFile.separator}pos-tmp", defaultOptions,
-  //     fromTastyFilter = FileFilter.exclude(TestSources.posFromTastyBlacklisted)
-  //   ).checkCompile()
-  // }
-
   @Test def posTestFromTasty: Unit = {
     // Can be reproduced with
     // > sbt
