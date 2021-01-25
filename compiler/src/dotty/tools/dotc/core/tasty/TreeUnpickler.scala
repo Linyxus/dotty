@@ -1076,10 +1076,9 @@ class TreeUnpickler(reader: TastyReader,
 
       def accessibleDenot(qualType: Type, name: Name, sig: Signature, target: Name) = {
         val pre = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
-        val d = qualType.decl(name).atSignature(sig, target)
-        if !d.symbol.exists then d
-        else if d.symbol.isAccessibleFrom(pre) then d.asSeenFrom(pre)
-        else qualType.nonPrivateDecl(name).atSignature(sig, target).asSeenFrom(pre)
+        val d = qualType.findMember(name, pre).atSignature(sig, target)
+        if (!d.symbol.exists || d.symbol.isAccessibleFrom(pre)) d
+        else qualType.findMember(name, pre, excluded = Private).atSignature(sig, target)
       }
 
       def readSimpleTerm(): Tree = tag match {
@@ -1185,7 +1184,10 @@ class TreeUnpickler(reader: TastyReader,
                 val target = new BufferedOutputStream( new FileOutputStream(file) );
                 try target.write(data.getBytes(StandardCharsets.UTF_8)) finally target.close;
               }
-              var sname = readName()
+              var symname = readName()
+              var precisesig = readName() match
+                case SignedName(_, sig, _) => sig
+                case _ => Signature.NotAMethod
               val qual = readTerm()
               val qualType = qual.tpe.widenIfUnstable
               val space = if currentAddr == end then qualType else readType()
@@ -1193,10 +1195,14 @@ class TreeUnpickler(reader: TastyReader,
                 makeSelect(qual, name, denot.asSeenFrom(pre))
               def select(name: Name, sig: Signature, target: Name) =
                 makeSelect(qual, name, accessibleDenot(qualType, name, sig, target))
-              val res = sname match
+              val res = symname match
                 case SignedName(name, sig, target) =>
                   val pre = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
-                  val isAmbiguous = pre.nonPrivateMember(name).isOverloaded
+                  assert(precisesig != Signature.NotAMethod)
+                  val isAmbiguous = pre.nonPrivateMember(name).match
+                    case d: MultiDenotation =>
+                      d.atSignature(precisesig, target).isInstanceOf[MultiDenotation]
+                    case _ => false
                   if isAmbiguous then
                     // writeBytes(TastyPrinter.show(reader.bytes), new File("WOW123.txt"))
                     // val d0 = pre.nonPrivateMember(name)
@@ -1208,7 +1214,7 @@ class TreeUnpickler(reader: TastyReader,
                     // report.echo(s"[$d0, $d0_1, $d0_2] [$d1, $d1_1, $d1_2]")
                     makeSelect(qual, name, space.decl(name).atSignature(sig, target).asSeenFrom(pre))
                   else
-                    select(name, sig, target)
+                    select(name, precisesig, target)
                 case name =>
                   select(name, Signature.NotAMethod, EmptyTermName)
               res

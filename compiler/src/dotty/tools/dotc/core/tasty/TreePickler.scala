@@ -422,6 +422,7 @@ class TreePickler(pickler: TastyPickler) {
                 writeByte(SELECTin)
                 withLength {
                   pickleNameAndSig(name, tree.symbol.signature, ename)
+                  pickleNameAndSig(name, sig, ename)
                   pickleTree(qual)
                   if tree.symbol.exists then
                     pickleType(tree.symbol.owner.typeRef)
