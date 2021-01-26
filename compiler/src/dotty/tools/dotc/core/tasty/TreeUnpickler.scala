@@ -1197,18 +1197,9 @@ class TreeUnpickler(reader: TastyReader,
                 makeSelect(qual, name, accessibleDenot(qualType, name, sig, target))
               val res = symname match
                 case SignedName(name, sig, target) =>
-                  val pre = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
-                  val isAmbiguous = pre.nonPrivateMember(name).match
-                    case d: MultiDenotation =>
-                      d.atSignature(sig, target).isInstanceOf[MultiDenotation]
-                    case _ => false
-                  if isAmbiguous then
-                    makeSelect(qual, name, space.decl(name).atSignature(sig, target).asSeenFrom(pre))
-                  else
-                    select(name, sig, target)
+                  select(name, sig, target)
                 case name =>
                   makeSelect(qual, name, accessibleDenot(qualType, name, Signature.NotAMethod, EmptyTermName))
-                  // select(name, Signature.NotAMethod, EmptyTermName)
               res
             case REPEATED =>
               val elemtpt = readTpt()

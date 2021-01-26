@@ -709,7 +709,7 @@ object TastyFormat {
    */
   def numRefs(tag: Int): Int = tag match {
     case VALDEF | DEFDEF | TYPEDEF | TYPEPARAM | PARAM | NAMEDARG | RETURN | BIND |
-         SELFDEF | REFINEDtype | TERMREFin | TYPEREFin | HOLE | SELECTin => 1
+         SELFDEF | REFINEDtype | TERMREFin | TYPEREFin | SELECTin | HOLE => 1
     case RENAMED | PARAMtype => 2
     case POLYtype | TYPELAMBDAtype | METHODtype => -1
     case _ => 0
