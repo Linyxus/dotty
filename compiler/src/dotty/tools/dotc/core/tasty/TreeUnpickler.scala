@@ -1182,10 +1182,11 @@ class TreeUnpickler(reader: TastyReader,
               // ================================================================================
 
               // 3 suites passed, 1 failed, 4 total
-              //     tests/pos/avoid.scala failed
+              //     ] failed
               //     tests/pos/i5418.scala failed
               //     tests/pos/i5980.scala failed
-              val srcnme = "???"
+              val srcnmes = Nil//List("i5980", "i5418")
+              val doinspect = srcnmes.exists(ctx.source.name.startsWith)
               var symname = readName()
               var precisesig = readName() match
                 case SignedName(_, sig, _) => sig
@@ -1216,16 +1217,19 @@ class TreeUnpickler(reader: TastyReader,
                       d.atSignature(sig, target).isInstanceOf[MultiDenotation]
                     case _ => false
                   if isAmbiguous then
-                    if ctx.source.name.startsWith(srcnme) then
+                    if doinspect then
                       val diff = if sig != precisesig then i"$sig => $precisesig" else i"$sig"
                       report.error(i"$qual . $name differs ambiguously: [$diff]")
                     makeSelect(qual, name, space.decl(name).atSignature(sig, target).asSeenFrom(pre))
                   else
-                    if ctx.source.name.startsWith(srcnme) && sig != precisesig then
+                    if doinspect && sig != precisesig then
                       report.error(i"$qual . $name differs: [$sig => $precisesig]")
                     select(name, sig, target)
                 case name =>
-                  select(name, Signature.NotAMethod, EmptyTermName)
+                  if doinspect then
+                    report.error(i"$qual . $name nosig")
+                  makeSelect(qual, name, accessibleDenot(qualType, name, Signature.NotAMethod, EmptyTermName))
+                  // select(name, Signature.NotAMethod, EmptyTermName)
               res
             case REPEATED =>
               val elemtpt = readTpt()
