@@ -415,16 +415,12 @@ class TreePickler(pickler: TastyPickler) {
                   case d: MultiDenotation => d.atSignature(sig, ename).isInstanceOf[MultiDenotation]
                   case _ => false
               if isAmbiguous then
-                writeByte(SELECTin)
-                withLength {
-                  pickleNameAndSig(name, tree.symbol.signature, ename)
-                  pickleTree(qual)
-                  pickleType(tree.symbol.owner.typeRef)
-                }
-              else
-                writeByte(if (name.isTypeName) SELECTtpt else SELECT)
-                pickleNameAndSig(name, sig, ename)
-                pickleTree(qual)
+                report.error(i"""Overloaded method $name (with signature [$sig @ $ename])
+                |can not be safely read from TASTy.
+                |Please report to the Scala maintainers.""".stripMargin, tree.srcPos)
+              writeByte(if (name.isTypeName) SELECTtpt else SELECT)
+              pickleNameAndSig(name, sig, ename)
+              pickleTree(qual)
           }
         case Apply(fun, args) =>
           if (fun.symbol eq defn.throwMethod) {

@@ -1181,18 +1181,6 @@ class TreeUnpickler(reader: TastyReader,
             case SELECTouter =>
               val levels = readNat()
               readTerm().outerSelect(levels, SkolemType(readType()))
-            case SELECTin =>
-              var sname = readName()
-              val qual = readTerm()
-              val owner = readType()
-              def select(name: Name, denot: Denotation) =
-                val prefix = ctx.typeAssigner.maybeSkolemizePrefix(qual.tpe.widenIfUnstable, name)
-                makeSelect(qual, name, denot.asSeenFrom(prefix))
-              sname match
-                case SignedName(name, sig, target) =>
-                  select(name, owner.decl(name).atSignature(sig, target))
-                case name =>
-                  select(name, owner.decl(name))
             case REPEATED =>
               val elemtpt = readTpt()
               SeqLiteral(until(end)(readTerm()), elemtpt)
