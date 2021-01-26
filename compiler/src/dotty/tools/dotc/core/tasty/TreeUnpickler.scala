@@ -1177,20 +1177,7 @@ class TreeUnpickler(reader: TastyReader,
               val levels = readNat()
               readTerm().outerSelect(levels, SkolemType(readType()))
             case SELECTin =>
-              // ================================================================================
-              // Test Report
-              // ================================================================================
-
-              // 3 suites passed, 1 failed, 4 total
-              //     ] failed
-              //     tests/pos/i5418.scala failed
-              //     tests/pos/i5980.scala failed
-              val srcnmes = Nil//List("i5980", "i5418")
-              val doinspect = srcnmes.exists(ctx.source.name.startsWith)
               var symname = readName()
-              var precisesig = readName() match
-                case SignedName(_, sig, _) => sig
-                case _ => Signature.NotAMethod
               val qual = readTerm()
               val qualType = qual.tpe.widenIfUnstable
               val space = if currentAddr == end then qualType else readType()
@@ -1211,23 +1198,15 @@ class TreeUnpickler(reader: TastyReader,
               val res = symname match
                 case SignedName(name, sig, target) =>
                   val pre = ctx.typeAssigner.maybeSkolemizePrefix(qualType, name)
-                  assert(precisesig != Signature.NotAMethod)
                   val isAmbiguous = pre.nonPrivateMember(name).match
                     case d: MultiDenotation =>
                       d.atSignature(sig, target).isInstanceOf[MultiDenotation]
                     case _ => false
                   if isAmbiguous then
-                    if doinspect then
-                      val diff = if sig != precisesig then i"$sig => $precisesig" else i"$sig"
-                      report.error(i"$qual . $name differs ambiguously: [$diff]")
                     makeSelect(qual, name, space.decl(name).atSignature(sig, target).asSeenFrom(pre))
                   else
-                    if doinspect && sig != precisesig then
-                      report.error(i"$qual . $name differs: [$sig => $precisesig]")
                     select(name, sig, target)
                 case name =>
-                  if doinspect then
-                    report.error(i"$qual . $name nosig")
                   makeSelect(qual, name, accessibleDenot(qualType, name, Signature.NotAMethod, EmptyTermName))
                   // select(name, Signature.NotAMethod, EmptyTermName)
               res

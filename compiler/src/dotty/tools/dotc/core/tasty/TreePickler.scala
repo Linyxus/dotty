@@ -417,7 +417,6 @@ class TreePickler(pickler: TastyPickler) {
                 writeByte(SELECTin)
                 withLength {
                   pickleNameAndSig(name, tree.symbol.signature, ename)
-                  pickleNameAndSig(name, sig, ename)
                   pickleTree(qual)
                   if tree.symbol.exists then // TODO: `1.unary_+` has no symbol
                     pickleType(tree.symbol.owner.typeRef)
