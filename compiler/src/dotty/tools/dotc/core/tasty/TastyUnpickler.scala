@@ -51,12 +51,13 @@ class TastyUnpickler(reader: TastyReader) {
     val start = currentAddr
     val end = start + length
     def readSignedRest(original: TermName, target: TermName): TermName =
+      val isVararg = readInt() != 0
       val result = readName().toTypeName
       // DOTTY: we shouldn't have to give an explicit type to paramsSig,
       // see https://github.com/lampepfl/dotty/issues/4867
       val paramsSig: List[Signature.ParamSig] = until(end)(readParamSig())
       val sig = Signature(paramsSig, result)
-      SignedName(original, sig, target)
+      SignedName(original, sig, target, isVararg)
 
     val result = tag match {
       case UTF8 =>

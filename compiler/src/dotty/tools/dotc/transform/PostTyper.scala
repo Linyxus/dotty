@@ -254,6 +254,30 @@ class PostTyper extends MacroTransform with IdentityDenotTransformer { thisPhase
       if tree.symbol.is(ConstructorProxy) then
         report.error(em"constructor proxy ${tree.symbol} cannot be used as a value", tree.srcPos)
 
+    def checkNoAmbiguousTastyDenot(tree: Select)(using Context): Unit =
+      import Denotations.MultiDenotation
+      val Select(qual, name) = tree
+      val sig = tree.tpe.signature
+      val ename = tree.symbol.targetName
+      val isVararg = tree.symbol.info.isVarArgsMethod
+      val isAmbiguous =
+        sig != Signature.NotAMethod
+        && qual.tpe.nonPrivateMember(name).match
+          case d: MultiDenotation =>
+            d.atSignature(sig, ename, isVararg).isInstanceOf[MultiDenotation]
+          case _ => false
+      if isAmbiguous then
+        // TODO: we need to safely recover from a crash in the case where this
+        // compilation unit was previously safe to compile, but then the
+        // method they depend on is recompiled and now this becomes ambiguous
+        // - We should prevent a crash, the question is that should the user
+        //   be using clean/incremental compile etc, or is it unacceptable
+        //   for the overload to become ambiguous?
+        val varargStr = if isVararg then " [*]" else ""
+        report.error(i"""Overloaded method $name (with signature [$sig$varargStr @ $ename])
+          |can not be safely read from TASTy.
+          |Please report to the Scala maintainers.""".stripMargin, tree.srcPos)
+
     override def transform(tree: Tree)(using Context): Tree =
       try tree match {
         case tree: Ident if !tree.isType =>
@@ -269,6 +293,7 @@ class PostTyper extends MacroTransform with IdentityDenotTransformer { thisPhase
           }
           else
             checkNoConstructorProxy(tree)
+            checkNoAmbiguousTastyDenot(tree)
             transformSelect(tree, Nil)
         case tree: Apply =>
           val methType = tree.fun.tpe.widen

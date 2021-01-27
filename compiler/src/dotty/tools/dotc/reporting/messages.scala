@@ -2263,7 +2263,7 @@ import transform.SymUtils._
       val staticSuperCall = {
         val staticSuper = accMixin.asClass.info.parents.reverse
           .find(_.nonPrivateMember(memberName)
-            .matchingDenotation(accMixin.thisType, acc.info, targetName).exists)
+            .matchingDenotation(accMixin.thisType, acc.info, targetName, requireVararg = false).exists)
         val staticSuperName = staticSuper match {
           case Some(parent) =>
             parent.classSymbol.name.show

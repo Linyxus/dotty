@@ -979,7 +979,7 @@ object Erasure {
             else origName
           val inlineMeth = atPhase(typerPhase) {
             retainer.owner.info.decl(origName)
-              .matchingDenotation(retainer.owner.thisType, stat.symbol.info, targetName)
+              .matchingDenotation(retainer.owner.thisType, stat.symbol.info, targetName, requireVararg = false)
               .symbol
           }
           (inlineMeth, stat)

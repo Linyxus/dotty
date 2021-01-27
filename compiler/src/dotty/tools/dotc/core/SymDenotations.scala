@@ -1257,8 +1257,9 @@ object SymDenotations {
      */
     final def matchingDecl(inClass: Symbol, site: Type)(using Context): Symbol = {
       var denot = inClass.info.nonPrivateDecl(name)
-      if (denot.isTerm) // types of the same name always match
-        denot = denot.matchingDenotation(site, site.memberInfo(symbol), symbol.targetName)
+      if denot.isTerm then // types of the same name always match
+        val isVararg = site.memberInfo(symbol).isVarArgsMethod
+        denot = denot.matchingDenotation(site, site.memberInfo(symbol), symbol.targetName, isVararg)
       denot.symbol
     }
 
@@ -1267,7 +1268,8 @@ object SymDenotations {
     final def matchingMember(site: Type)(using Context): Symbol = {
       var denot = site.nonPrivateMember(name)
       if (denot.isTerm) // types of the same name always match
-        denot = denot.matchingDenotation(site, site.memberInfo(symbol), symbol.targetName)
+        val isVararg = site.memberInfo(symbol).isVarArgsMethod
+        denot = denot.matchingDenotation(site, site.memberInfo(symbol), symbol.targetName, isVararg)
       denot.symbol
     }
 

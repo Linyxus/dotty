@@ -99,7 +99,7 @@ object ResolveSuper {
     while (bcs.nonEmpty && sym == NoSymbol) {
       val other = bcs.head.info.nonPrivateDecl(memberName)
         .filterWithPredicate(denot => mix.isEmpty || denot.symbol.owner.name == mix)
-        .matchingDenotation(base.thisType, base.thisType.memberInfo(acc), targetName)
+        .matchingDenotation(base.thisType, base.thisType.memberInfo(acc), targetName, requireVararg = false)
       report.debuglog(i"rebindsuper ${bcs.head} $other deferred = ${other.symbol.is(Deferred)}")
       if other.exists && !other.symbol.is(Deferred) then
         sym = other.symbol

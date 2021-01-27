@@ -1378,7 +1378,7 @@ class Namer { typer: Typer =>
                 else NoType
 
             val iRawInfo =
-              cls.info.nonPrivateDecl(sym.name).matchingDenotation(site, schema, sym.targetName).info
+              cls.info.nonPrivateDecl(sym.name).matchingDenotation(site, schema, sym.targetName, requireVararg = false).info
             val iResType = instantiatedResType(iRawInfo, paramss).asSeenFrom(site, cls)
             if (iResType.exists)
               typr.println(i"using inherited type for ${mdef.name}; raw: $iRawInfo, inherited: $iResType")

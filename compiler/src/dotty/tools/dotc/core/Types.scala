@@ -1529,8 +1529,8 @@ object Types {
     def select(name: TermName)(using Context): TermRef =
       TermRef(this, name, member(name))
 
-    def select(name: TermName, sig: Signature, target: Name)(using Context): TermRef =
-      TermRef(this, name, member(name).atSignature(sig, target, relaxed = !ctx.erasedTypes))
+    def select(name: TermName, sig: Signature, target: Name, isVararg: Boolean)(using Context): TermRef =
+      TermRef(this, name, member(name).atSignature(sig, target, isVararg, relaxed = !ctx.erasedTypes))
 
 // ----- Access to parts --------------------------------------------
 
@@ -2169,14 +2169,14 @@ object Types {
     }
 
     private def disambiguate(d: Denotation)(using Context): Denotation =
-      disambiguate(d, currentSignature, currentSymbol.targetName)
+      disambiguate(d, currentSignature, currentSymbol.targetName, currentSymbol.infoOrCompleter.isVarArgsMethod)
 
-    private def disambiguate(d: Denotation, sig: Signature, target: Name)(using Context): Denotation =
+    private def disambiguate(d: Denotation, sig: Signature, target: Name, isVararg: Boolean)(using Context): Denotation =
       if (sig != null)
-        d.atSignature(sig, target, relaxed = !ctx.erasedTypes) match {
+        d.atSignature(sig, target, isVararg, relaxed = !ctx.erasedTypes) match {
           case d1: SingleDenotation => d1
           case d1 =>
-            d1.atSignature(sig, target, relaxed = false) match {
+            d1.atSignature(sig, target, isVararg, relaxed = false) match {
               case d2: SingleDenotation => d2
               case d2 => d2.suchThat(currentSymbol.eq).orElse(d2)
             }
@@ -2482,7 +2482,8 @@ object Types {
           d = disambiguate(d,
                 if (lastSymbol.signature == Signature.NotAMethod) Signature.NotAMethod
                 else lastSymbol.asSeenFrom(prefix).signature,
-                lastSymbol.targetName)
+                lastSymbol.targetName,
+                lastSymbol.asSeenFrom(prefix).infoOrCompleter.isVarArgsMethod)
         NamedType(prefix, name, d)
       }
       if (prefix eq this.prefix) this

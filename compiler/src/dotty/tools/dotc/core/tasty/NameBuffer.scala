@@ -26,7 +26,7 @@ class NameBuffer extends TastyBuffer(10000) {
         ref
       case None =>
         name1 match {
-          case SignedName(original, Signature(params, result), target) =>
+          case SignedName(original, Signature(params, result), target, _) =>
             nameIndex(original)
             if !original.matchesTargetName(target) then nameIndex(target)
             nameIndex(result)
@@ -94,16 +94,17 @@ class NameBuffer extends TastyBuffer(10000) {
       case AnyNumberedName(original, num) =>
         writeByte(tag)
         withLength { writeNameRef(original); writeNat(num) }
-      case SignedName(original, Signature(paramsSig, result), target) =>
+      case SignedName(original, Signature(paramsSig, result), target, vararg) =>
         val needsTarget = !original.matchesTargetName(target)
         writeByte(if needsTarget then TARGETSIGNED else SIGNED)
         withLength(
           { writeNameRef(original)
+            writeInt(if vararg then 1 else 0)
             if needsTarget then writeNameRef(target)
             writeNameRef(result)
             paramsSig.foreach(writeParamSig)
           },
-          if ((paramsSig.length + 3) * maxIndexWidth <= maxNumInByte) 1 else 2)
+          if (paramsSig.length + 4) * maxIndexWidth <= maxNumInByte then 1 else 2)
       case DerivedName(original, _) =>
         writeByte(tag)
         withLength { writeNameRef(original) }

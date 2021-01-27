@@ -91,10 +91,10 @@ class TreePickler(pickler: TastyPickler) {
 
   def pickleName(name: Name): Unit = writeNat(nameIndex(name).index)
 
-  private def pickleNameAndSig(name: Name, sig: Signature, target: Name): Unit =
+  private def pickleNameAndSig(name: Name, sig: Signature, target: Name, isVararg: Boolean): Unit =
     pickleName(
       if (sig eq Signature.NotAMethod) name
-      else SignedName(name.toTermName, sig, target.asTermName))
+      else SignedName(name.toTermName, sig, target.asTermName, isVararg))
 
   private def pickleSymRef(sym: Symbol)(using Context) = symRefs.get(sym) match {
     case Some(label) =>
@@ -197,17 +197,19 @@ class TreePickler(pickler: TastyPickler) {
       def pickleExternalRef(sym: Symbol) = {
         val isShadowedRef =
           sym.isClass && tpe.prefix.member(sym.name).symbol != sym
+        val isType = tpe.isType
+        val isVararg = !isType && sym.info.isVarArgsMethod
         if (sym.is(Flags.Private) || isShadowedRef) {
-          writeByte(if (tpe.isType) TYPEREFin else TERMREFin)
+          writeByte(if isType then TYPEREFin else TERMREFin)
           withLength {
-            pickleNameAndSig(sym.name, sym.signature, sym.targetName)
+            pickleNameAndSig(sym.name, sym.signature, sym.targetName, isVararg)
             pickleType(tpe.prefix)
             pickleType(sym.owner.typeRef)
           }
         }
         else {
-          writeByte(if (tpe.isType) TYPEREF else TERMREF)
-          pickleNameAndSig(sym.name, tpe.signature, sym.targetName)
+          writeByte(if isType then TYPEREF else TERMREF)
+          pickleNameAndSig(sym.name, tpe.signature, sym.targetName, isVararg)
           pickleType(tpe.prefix)
         }
       }
@@ -409,17 +411,8 @@ class TreePickler(pickler: TastyPickler) {
             case _ =>
               val sig = tree.tpe.signature
               var ename = tree.symbol.targetName
-              val isAmbiguous =
-                sig != Signature.NotAMethod
-                && qual.tpe.nonPrivateMember(name).match
-                  case d: MultiDenotation => d.atSignature(sig, ename).isInstanceOf[MultiDenotation]
-                  case _ => false
-              if isAmbiguous then
-                report.error(i"""Overloaded method $name (with signature [$sig @ $ename])
-                |can not be safely read from TASTy.
-                |Please report to the Scala maintainers.""".stripMargin, tree.srcPos)
               writeByte(if (name.isTypeName) SELECTtpt else SELECT)
-              pickleNameAndSig(name, sig, ename)
+              pickleNameAndSig(name, sig, ename, tree.symbol.info.isVarArgsMethod)
               pickleTree(qual)
           }
         case Apply(fun, args) =>
