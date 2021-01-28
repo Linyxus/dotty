@@ -797,20 +797,20 @@ object RefChecks {
         // validate all base types of a class in reverse linear order.
         def register(tp: Type): Unit = {
           val baseClass = tp.classSymbol
-          if (baseClasses contains baseClass) {
+          if (baseClasses.contains(baseClass)) {
             val alreadySeen = seenTypes.getOrElse(baseClass, Nil)
             if (!alreadySeen.exists(_ <:< tp))
               seenTypes.update(baseClass, tp :: alreadySeen.filterNot(tp <:< _))
           }
-          val remaining = tp.parents filterNot seenParents
+          val remaining = tp.parents.filterNot(seenParents)
           seenParents ++= remaining
-          remaining foreach register
+          remaining.foreach(register)
         }
         register(tpe)
 
         seenTypes.iterator.foreach {
           case (cls, Nil) =>
-            assert(false) // this case should not be reachable
+            unreachable()
           case (cls, _ :: Nil) =>
             () // Ok
           case (cls, tp1 :: tp2 :: _) =>
