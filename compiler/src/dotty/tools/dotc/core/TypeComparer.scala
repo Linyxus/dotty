@@ -392,8 +392,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
           assumedTrue(tp1) ||
           tp2.match {
             case tp2: TypeParamRef =>
-              constraint.isUnifying(tp1, tp2) ||
-              inFrozenConstraint(constraint.isLess(tp1, tp2))
+              constraint.isLess(tp1, tp2)
             case _ =>
               false
           } ||
