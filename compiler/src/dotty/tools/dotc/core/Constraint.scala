@@ -101,6 +101,9 @@ abstract class Constraint extends Showable {
    */
   def unify(p1: TypeParamRef, p2: TypeParamRef)(using Context): This
 
+  /** Is it currently unifying p1 and p2? */
+  def isUnifying(p1: TypeParamRef, p2: TypeParamRef)(using Context): Boolean
+
   /** A new constraint which is derived from this constraint by removing
    *  the type parameter `param` from the domain and replacing all top-level occurrences
    *  of the parameter elsewhere in the constraint by type `tp`, or a conservative
