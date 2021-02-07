@@ -77,8 +77,6 @@ object language:
    */
   object adhocExtensions
 
-  object unsafeNulls
-
   /** Set source version to 3.0-migration.
     *
     * @see [[https://scalacenter.github.io/scala-3-migration-guide/docs/scala-3-migration-mode]]
@@ -102,4 +100,11 @@ object language:
     * @see [[https://scalacenter.github.io/scala-3-migration-guide/docs/scala-3-migration-mode]]
     */
   object `3.1`
+
+  /** Unsafe Nulls fot Explicit Nulls
+    * Inside the "unsafe" scope, `Null` is considered as a subtype of all reference types.
+    *
+    * @see [[http://dotty.epfl.ch/docs/reference/other-new-features/explicit-nulls.html]]
+    */
+  object unsafeNulls
 end language

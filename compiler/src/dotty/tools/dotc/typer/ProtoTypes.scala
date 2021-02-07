@@ -10,7 +10,10 @@ import Trees._
 import Constants._
 import util.{Stats, SimpleIdentityMap}
 import Decorators._
+import Nullables.useUnsafeNullsSubType
+import NullOpsDecorator._
 import Uniques._
+import config.Feature
 import config.Printers.typr
 import util.SourceFile
 import util.Property
@@ -36,7 +39,10 @@ object ProtoTypes {
      *  If `pt` is a by-name type, we compare against the underlying type instead.
      */
     def isCompatible(tp: Type, pt: Type)(using Context): Boolean =
-      (tp.widenExpr relaxed_<:< pt.widenExpr) || viewExists(tp, pt)
+      val tpw = tp.widenExpr
+      val ptw = pt.widenExpr
+      useUnsafeNullsSubType{ tpw relaxed_<:< ptw }
+      || viewExists(tp, pt)
 
     /** Like normalize and then isCompatible, but using a subtype comparison with
      *  necessary eithers that does not unnecessarily truncate the constraint space,
@@ -44,7 +50,9 @@ object ProtoTypes {
      */
     def necessarilyCompatible(tp: Type, pt: Type)(using Context): Boolean =
       val tpn = normalize(tp, pt, followIFT = !defn.isContextFunctionType(pt))
-      necessarySubType(tpn, pt) || tpn.isValueSubType(pt) || viewExists(tpn, pt)
+      useUnsafeNullsSubType{ necessarySubType(tpn, pt) }
+      || tpn.isValueSubType(pt)
+      || viewExists(tpn, pt)
 
     /** Test compatibility after normalization.
      *  If `keepConstraint` is false, the current constraint set will not be modified by this call.

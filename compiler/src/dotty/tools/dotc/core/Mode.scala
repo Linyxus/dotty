@@ -120,6 +120,12 @@ object Mode {
   /** Are we resolving a TypeTest node? */
   val InTypeTest: Mode = newMode(27, "InTypeTest")
 
-  /** Are we enforcing null safety */
+  /** Are we enforcing null safety? */
   val SafeNulls = newMode(28, "SafeNulls")
+
+  /** Should we use Unsafe Nulls SubTyping in TypeComparer?
+   *  If this mode is in the Context, `Null` is considered as a
+   *  subtype of all reference type.
+   */
+  val UnsafeNullsSubType: Mode = newMode(29, "UnsafeNullsSubType")
 }

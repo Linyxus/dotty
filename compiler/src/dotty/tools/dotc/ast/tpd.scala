@@ -10,10 +10,12 @@ import core._
 import util.Spans._, Types._, Contexts._, Constants._, Names._, Flags._, NameOps._
 import Symbols._, StdNames._, Annotations._, Trees._, Symbols._
 import Decorators._, DenotTransformers._
+import Phases._, NullOpsDecorator._
 import collection.{immutable, mutable}
 import util.{Property, SourceFile, NoSource}
 import NameKinds.{TempResultName, OuterSelectName}
 import typer.ConstFold
+import typer.Nullables
 
 import scala.annotation.tailrec
 import scala.io.Codec
@@ -469,7 +471,7 @@ object tpd extends Trees.Instance[Type] with TypedTreeInfo {
 
   /** The wrapped array method name for an array of type elemtp */
   def wrapArrayMethodName(elemtp: Type)(using Context): TermName = {
-    val elemCls = elemtp.classSymbol
+    val elemCls = atPhase(erasurePhase.next) { elemtp.classSymbol }
     if (elemCls.isPrimitiveValueClass) nme.wrapXArray(elemCls.name)
     else if (elemCls.derivesFrom(defn.ObjectClass) && !elemCls.isNotRuntimeClass) nme.wrapRefArray
     else nme.genericWrapArray
@@ -938,7 +940,7 @@ object tpd extends Trees.Instance[Type] with TypedTreeInfo {
 
     /** The current tree applied to given type argument list: `tree[targs(0), ..., targs(targs.length - 1)]` */
     def appliedToTypeTrees(targs: List[Tree])(using Context): Tree =
-      if (targs.isEmpty) tree else TypeApply(tree, targs)
+      if targs.isEmpty then tree else TypeApply(tree, targs)
 
     /** Apply to `()` unless tree's widened type is parameterless */
     def ensureApplied(using Context): Tree =

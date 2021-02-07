@@ -20,6 +20,35 @@ import ast.Trees.mods
 object Nullables:
   import ast.tpd._
 
+  inline def unsafeNullsEnabled(using Context): Boolean =
+    ctx.explicitNulls && !ctx.mode.is(Mode.SafeNulls)
+
+  /** Use unsafe nulls subtyping where `Null` is a subtype of all reference types */
+  inline def useUnsafeNullsSubType[T](inline op: Context ?=> T)(using Context): T =
+    val c = if unsafeNullsEnabled then ctx.addMode(Mode.UnsafeNullsSubType) else ctx
+    op(using c)
+
+  private def needNullifyHi(lo: Type, hi: Type)(using Context): Boolean =
+    ctx.explicitNulls
+    && lo.isExactlyNull // only nullify hi if lo is exactly Null type
+    && hi.isValueType
+    // We cannot check if hi is nullable, because it can cause cyclic reference.
+
+  /** Create a nullable type bound
+   *  If lo is `Null`, `| Null` is added to hi
+   */
+  def createNullableTypeBounds(lo: Type, hi: Type)(using Context): TypeBounds =
+    val newHi = if needNullifyHi(lo, hi) then OrType(hi, defn.NullType, soft = false) else hi
+    TypeBounds(lo, newHi)
+
+  /** Create a nullable type bound tree
+   *  If lo is `Null`, `| Null` is added to hi
+   */
+  def createNullableTypeBoundsTree(lo: Tree, hi: Tree, alias: Tree = EmptyTree)(using Context): TypeBoundsTree =
+    val hiTpe = hi.typeOpt
+    val newHi = if needNullifyHi(lo.typeOpt, hiTpe) then TypeTree(OrType(hiTpe, defn.NullType, soft = false)) else hi
+    TypeBoundsTree(lo, newHi, alias)
+
   /** A set of val or var references that are known to be not null, plus a set of
    *  variable references that are not known (anymore) to be not null
    */
@@ -240,7 +269,6 @@ object Nullables:
         && s != refOwner
         && (s.isOneOf(Lazy | Method) // not at the rhs of lazy ValDef or in a method (or lambda)
             || s.isClass // not in a class
-               // TODO: need to check by-name parameter
             || recur(s.owner))
 
       refSym.is(Mutable) // if it is immutable, we don't need to check the rest conditions

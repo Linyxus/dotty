@@ -20,6 +20,7 @@ import Nullables._
 import Implicits.ContextualImplicits
 import config.Settings._
 import config.Config
+import config.Feature
 import reporting._
 import io.{AbstractFile, NoAbstractFile, PlainFile, Path}
 import scala.io.Codec
@@ -28,7 +29,6 @@ import printing._
 import config.{JavaPlatform, SJSPlatform, Platform, ScalaSettings}
 import classfile.ReusableDataReader
 import StdNames.nme
-
 import scala.annotation.internal.sharable
 
 import DenotTransformers.DenotTransformer

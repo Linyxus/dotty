@@ -7,6 +7,7 @@ import core._
 import dotty.tools.dotc.typer.Checking
 import dotty.tools.dotc.typer.Inliner
 import dotty.tools.dotc.typer.VarianceChecker
+import dotty.tools.dotc.typer.Nullables
 import Types._, Contexts._, Names._, Flags._, DenotTransformers._, Phases._
 import SymDenotations._, StdNames._, Annotations._, Trees._, Scopes._
 import Decorators._
@@ -306,7 +307,9 @@ class PostTyper extends MacroTransform with IdentityDenotTransformer { thisPhase
           args.foreach(checkInferredWellFormed)
           if (fn.symbol != defn.ChildAnnot.primaryConstructor)
             // Make an exception for ChildAnnot, which should really have AnyKind bounds
-            Checking.checkBounds(args, fn.tpe.widen.asInstanceOf[PolyType])
+            Nullables.useUnsafeNullsSubType {
+              Checking.checkBounds(args, fn.tpe.widen.asInstanceOf[PolyType])
+            }
           fn match {
             case sel: Select =>
               val args1 = transform(args)
@@ -368,7 +371,9 @@ class PostTyper extends MacroTransform with IdentityDenotTransformer { thisPhase
           else if (tree.tpt.symbol == defn.orType)
             () // nothing to do
           else
-            Checking.checkAppliedType(tree)
+            Nullables.useUnsafeNullsSubType {
+              Checking.checkAppliedType(tree)
+            }
           super.transform(tree)
         case SingletonTypeTree(ref) =>
           Checking.checkRealizable(ref.tpe, ref.srcPos)

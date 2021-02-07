@@ -1826,7 +1826,9 @@ object SymDenotations {
       derivesFrom(base) ||
         base.isClass && (
           (symbol eq defn.NothingClass) ||
-            (symbol eq defn.NullClass) && (base ne defn.NothingClass))
+            (!ctx.explicitNulls || ctx.phase.erasedTypes)
+            && (symbol eq defn.NullClass)
+            && (base ne defn.NothingClass))
 
     /** Is it possible that a class inherits both `this` and `that`?
      *

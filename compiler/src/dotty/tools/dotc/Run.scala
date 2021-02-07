@@ -7,6 +7,7 @@ import Periods._
 import Symbols._
 import Types._
 import Scopes._
+import StdNames.nme
 import Names.Name
 import Denotations.Denotation
 import typer.Typer
@@ -14,6 +15,7 @@ import typer.ImportInfo._
 import Decorators._
 import io.{AbstractFile, PlainFile, VirtualFile}
 import Phases.unfusedPhases
+import config.Feature
 
 import util._
 import reporting.Reporter
