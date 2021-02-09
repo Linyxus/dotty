@@ -585,8 +585,13 @@ object Denotations {
     final def signature(using Context): Signature =
       if (isType) Signature.NotAMethod // don't force info if this is a type SymDenotation
       else info match {
-        case info: MethodicType =>
-          try info.signature
+        case info: MethodOrPoly =>
+          val isJava =
+            if prefix eq NoPrefix then
+              symbol.is(JavaDefined)
+            else
+              prefix.classSymbol.is(JavaDefined)
+          try info.signature(isJava)
           catch { // !!! DEBUG
             case scala.util.control.NonFatal(ex) =>
               report.echo(s"cannot take signature of $info")
@@ -1058,7 +1063,10 @@ object Denotations {
         def needsPrefix =
           // For opaque types, the prefix is used in `ElimOpaques#transform`,
           // without this i7159.scala would fail when compiled from tasty.
-          symbol.is(Opaque)
+          symbol.is(Opaque) ||
+          // SingleDenotation#signature relies on the prefix to compute
+          // an appropriate signature for methods.
+          info.isInstanceOf[MethodOrPoly] && symbol.is(JavaDefined) != pre.classSymbol.is(JavaDefined)
 
         val derivedInfo = info.asSeenFrom(pre, owner)
         if Config.reuseSymDenotations && this.isInstanceOf[SymDenotation]
