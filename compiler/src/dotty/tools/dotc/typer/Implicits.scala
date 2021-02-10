@@ -251,7 +251,7 @@ object Implicits:
         val candidates = new mutable.ListBuffer[Candidate]
         def tryCandidate(extensionOnly: Boolean)(ref: ImplicitRef) =
           var ckind = exploreInFreshCtx { (ctx: FreshContext) ?=>
-            ctx.setMode(ctx.mode | Mode.TypevarsMissContext)
+            ctx.setMode((ctx.mode | Mode.TypevarsMissContext | Mode.UnsafeNullsSubType) &~ Mode.SafeNulls)
             candidateKind(ref.underlyingRef)
           }
           if extensionOnly then ckind &= Candidate.Extension
