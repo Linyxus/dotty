@@ -335,6 +335,9 @@ object Scanners {
       this.token = token
     }
 
+    def isOperator =
+      token == IDENTIFIER && isOperatorPart(name(name.length - 1))
+
     /** A leading symbolic or backquoted identifier is treated as an infix operator if
       *   - it does not follow a blank line, and
       *   - it is followed by at least one whitespace character and a
@@ -343,8 +346,7 @@ object Scanners {
       */
     def isLeadingInfixOperator(inConditional: Boolean = true) =
       allowLeadingInfixOperators
-      && (  token == BACKQUOTED_IDENT
-         || token == IDENTIFIER && isOperatorPart(name(name.length - 1)))
+      && (token == BACKQUOTED_IDENT || isOperator)
       && (isWhitespace(ch) || ch == LF)
       && !pastBlankLine
       && {
@@ -352,8 +354,9 @@ object Scanners {
         lookahead.allowLeadingInfixOperators = false
           // force a NEWLINE a after current token if it is on its own line
         lookahead.nextToken()
-        canStartExprTokens.contains(lookahead.token)
-        || lookahead.token == NEWLINE && canStartExprTokens.contains(lookahead.next.token)
+        (canStartExprTokens.contains(lookahead.token)
+         || lookahead.token == NEWLINE && canStartExprTokens.contains(lookahead.next.token)
+        ) && !lookahead.isOperator
       }
       && {
         if migrateTo3 then
