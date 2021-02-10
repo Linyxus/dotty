@@ -355,8 +355,9 @@ object Scanners {
           // force a NEWLINE a after current token if it is on its own line
         lookahead.nextToken()
         (canStartExprTokens.contains(lookahead.token)
-         || lookahead.token == NEWLINE && canStartExprTokens.contains(lookahead.next.token)
-        ) && !lookahead.isOperator
+         || lookahead.token == NEWLINE && canStartExprTokens.contains(lookahead.next.token))
+        &&
+        (!lookahead.isOperator || nme.raw.isUnary(lookahead.name))
       }
       && {
         if migrateTo3 then
