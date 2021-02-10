@@ -586,11 +586,19 @@ object Denotations {
       if (isType) Signature.NotAMethod // don't force info if this is a type SymDenotation
       else info match {
         case info: MethodOrPoly =>
-          val isJava =
-            if prefix eq NoPrefix then
-              symbol.is(JavaDefined)
-            else
-              prefix.classSymbol.is(JavaDefined)
+          def isJavaPrefix(tp: Type): Boolean = tp match
+            case tp: ThisType  => tp.cls.is(JavaDefined)
+            case tp: ClassInfo => tp.cls.is(JavaDefined)
+            case tp: AndOrType => isJavaPrefix(tp.tp1) && isJavaPrefix(tp.tp2)
+            case tp: TypeRef if tp.symbol.isClass => tp.symbol.is(JavaDefined)
+            case tp: TypeProxy => isJavaPrefix(tp.underlying)
+            case _: JavaArrayType => true
+            case _ => false
+
+          // Use the Java signature of this method if all parts of its prefix
+          // are Java-defined or if it doesn't have a prefix (i.e., it is a
+          // SymDenotation) and is defined in a Java class.
+          val isJava = if prefix eq NoPrefix then symbol.is(JavaDefined) else isJavaPrefix(prefix)
           try info.signature(isJava)
           catch { // !!! DEBUG
             case scala.util.control.NonFatal(ex) =>
