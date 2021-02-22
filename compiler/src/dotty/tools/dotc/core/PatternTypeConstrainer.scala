@@ -88,6 +88,27 @@ trait PatternTypeConstrainer { self: TypeComparer =>
       }
     }
 
+    def processRefinement(tp: Type, isScrut: Boolean): Type = tp match {
+      case tp @ RefinedType(parent, name, bounds) =>
+        /** Record type bounds in the refinement */
+        if isScrut then
+          ctx.gadt.addScrutStructBound(name, bounds)
+        else
+          ctx.gadt.addPatStructBound(name, bounds)
+
+        // println(tp)
+        // println(parent)
+        // println(s"refined type!")
+        // println(s"name = $name")
+        // println(s"bounds = $bounds")
+
+        processRefinement(tp.parent, isScrut)
+      case tp: RecType =>
+        // println(s"rec type!")
+        processRefinement(tp.parent, isScrut)
+      case tp => tp
+    }
+
     def stripRefinement(tp: Type): Type = tp match {
       case tp: RefinedOrRecType => stripRefinement(tp.parent)
       case tp => tp
@@ -150,14 +171,14 @@ trait PatternTypeConstrainer { self: TypeComparer =>
       case AndType(scrut1, scrut2) =>
         constrainPatternType(pat, scrut1) && constrainPatternType(pat, scrut2)
       case scrut: RefinedOrRecType =>
-        constrainPatternType(pat, stripRefinement(scrut))
+        constrainPatternType(pat, processRefinement(scrut, isScrut = true))
       case scrut => pat.dealias match {
         case OrType(pat1, pat2) =>
           either(constrainPatternType(pat1, scrut), constrainPatternType(pat2, scrut))
         case AndType(pat1, pat2) =>
           constrainPatternType(pat1, scrut) && constrainPatternType(pat2, scrut)
         case pat: RefinedOrRecType =>
-          constrainPatternType(stripRefinement(pat), scrut)
+          constrainPatternType(processRefinement(pat, isScrut = false), scrut)
         case pat =>
           constrainSimplePatternType(pat, scrut) || classesMayBeCompatible && constrainUpcasted(scrut)
       }

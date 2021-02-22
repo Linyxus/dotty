@@ -10,6 +10,8 @@ import util.SimpleIdentityMap
 import collection.mutable
 import printing._
 
+import Names.Name
+
 import scala.annotation.internal.sharable
 
 /** Represents GADT constraints currently in scope */
@@ -55,19 +57,36 @@ sealed abstract class GadtConstraint extends Showable {
   def restore(other: GadtConstraint): Unit
 
   def debugBoundsDescription(using Context): String
+
+  /** Record the name of the scrutinee being constrained upon */
+  def setScrutName(scrut: String): Unit
+  def scrutName: Option[String]
+
+  /** Record type bounds from refinement types */
+  def addScrutStructBound(name: Name, bound: Type): Unit
+  def addPatStructBound(name: Name, bound: Type): Unit
+
+  def scrutStructBounds: List[(Name, Type)]
+  def patStructBounds: List[(Name, Type)]
 }
 
 final class ProperGadtConstraint private(
   private var myConstraint: Constraint,
   private var mapping: SimpleIdentityMap[Symbol, TypeVar],
   private var reverseMapping: SimpleIdentityMap[TypeParamRef, Symbol],
+  private var _scrutName: Option[String],
+  private var myScrutStructBounds: List[(Name, Type)],
+  private var myPatStructBounds: List[(Name, Type)],
 ) extends GadtConstraint with ConstraintHandling {
   import dotty.tools.dotc.config.Printers.{gadts, gadtsConstr}
 
   def this() = this(
     myConstraint = new OrderingConstraint(SimpleIdentityMap.empty, SimpleIdentityMap.empty, SimpleIdentityMap.empty),
     mapping = SimpleIdentityMap.empty,
-    reverseMapping = SimpleIdentityMap.empty
+    reverseMapping = SimpleIdentityMap.empty,
+    _scrutName = None,
+    myScrutStructBounds = Nil,
+    myPatStructBounds = Nil,
   )
 
   /** Exposes ConstraintHandling.subsumes */
@@ -202,7 +221,10 @@ final class ProperGadtConstraint private(
   override def fresh: GadtConstraint = new ProperGadtConstraint(
     myConstraint,
     mapping,
-    reverseMapping
+    reverseMapping,
+    None,
+    Nil,
+    Nil,
   )
 
   def restore(other: GadtConstraint): Unit = other match {
@@ -285,6 +307,17 @@ final class ProperGadtConstraint private(
     }
     sb.result
   }
+
+  override def setScrutName(scrut: String): Unit = { _scrutName = Some(scrut) }
+  override def scrutName: Option[String] = _scrutName
+
+  override def addScrutStructBound(name: Name, bound: Type): Unit =
+    myScrutStructBounds = (name, bound) :: myScrutStructBounds
+  override def addPatStructBound(name: Name, bound: Type): Unit =
+    myPatStructBounds = (name, bound) :: myPatStructBounds
+
+  override def scrutStructBounds: List[(Name, Type)] = myScrutStructBounds
+  override def patStructBounds: List[(Name, Type)] = myPatStructBounds
 }
 
 @sharable object EmptyGadtConstraint extends GadtConstraint {
@@ -309,4 +342,13 @@ final class ProperGadtConstraint private(
   override def debugBoundsDescription(using Context): String = "EmptyGadtConstraint"
 
   override def toText(printer: Printer): Texts.Text = "EmptyGadtConstraint"
+
+  override def setScrutName(scrut: String): Unit = ()
+  override def scrutName: Option[String] = None
+
+  override def addScrutStructBound(name: Name, bound: Type): Unit = ()
+  override def addPatStructBound(name: Name, bound: Type): Unit = ()
+
+  override def scrutStructBounds: List[(Name, Type)] = Nil
+  override def patStructBounds: List[(Name, Type)] = Nil
 }
