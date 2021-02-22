@@ -11,8 +11,6 @@ import dotty.tools.dotc.reporting.trace
 import config.Feature.migrateTo3
 import config.Printers._
 
-import scala.annotation.tailrec
-
 trait PatternTypeConstrainer { self: TypeComparer =>
 
   /** Derive type and GADT constraints that necessarily follow from a pattern with the given type matching
@@ -98,7 +96,7 @@ trait PatternTypeConstrainer { self: TypeComparer =>
     def constrainUpcasted(scrut: Type): Boolean = trace(i"constrainUpcasted($scrut)", gadts) {
       // Fold a list of types into an AndType
       def buildAndType(xs: List[Type]): Type = {
-        @tailrec def recur(acc: Type, rem: List[Type]): Type = rem match {
+        @annotation.tailrec def recur(acc: Type, rem: List[Type]): Type = rem match {
           case Nil => acc
           case x :: rem => recur(AndType(acc, x), rem)
         }
