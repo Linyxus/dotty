@@ -165,7 +165,9 @@ class ReplCompiler extends Compiler {
     typeCheck(expr).map { tree =>
       given Context = state.context
       tree.rhs match {
-        case Block(xs, _) => xs.last.tpe.widen.show
+        case Block(xs, _) =>
+          println(s"${xs.last.tpe.widen}")
+          xs.last.tpe.widen.show
         case _ =>
           """Couldn't compute the type of your expression, so sorry :(
             |

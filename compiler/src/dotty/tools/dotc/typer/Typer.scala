@@ -634,34 +634,40 @@ class Typer extends Namer
     }
   }
 
-  def typedNumber(tree: untpd.Number, pt: Type)(using Context): Tree = {
+  def typedNumber(tree: untpd.Number, pt: Type)(using Context): Tree = trace.force(i"typedNumber($tree, $pt)", typr, show = true) {
     import scala.util.FromDigits._
     import untpd.NumberKind._
     record("typedNumber")
     val digits = tree.digits
     val target = pt.dealias
     def lit(value: Any) = Literal(Constant(value)).withSpan(tree.span)
+    println(s"!!!!! typed number : tree = $tree, pt = $pt")
     try {
       // Special case primitive numeric types
+      println("!!!!! entering try")
       if (target.isRef(defn.IntClass) ||
           target.isRef(defn.CharClass) ||
           target.isRef(defn.ByteClass) ||
           target.isRef(defn.ShortClass))
+        println("!!!!! if case 1")
         tree.kind match {
           case Whole(radix) => return lit(intFromDigits(digits, radix))
           case _ =>
         }
       else if (target.isRef(defn.LongClass))
+        println("!!!!! if case 2")
         tree.kind match {
           case Whole(radix) => return lit(longFromDigits(digits, radix))
           case _ =>
         }
       else if (target.isRef(defn.FloatClass))
+        println("!!!!! if case 3")
         tree.kind match {
           case Whole(16) => // cant parse hex literal as float
           case _         => return lit(floatFromDigits(digits))
         }
       else if (target.isRef(defn.DoubleClass))
+        println("!!!!! if case 4")
         tree.kind match {
           case Whole(16) => // cant parse hex literal as double
           case _         => return lit(doubleFromDigits(digits))
@@ -669,6 +675,7 @@ class Typer extends Namer
       else if genericNumberLiteralsEnabled
           && target.isValueType && isFullyDefined(target, ForceDegree.none)
       then
+        println("!!!!! if case 5")
         // If expected type is defined with a FromDigits instance, use that one
         val fromDigitsCls = tree.kind match {
           case Whole(10) => defn.FromDigitsClass
@@ -690,6 +697,7 @@ class Typer extends Namer
           case _ =>
         }
       // Otherwise convert to Int or Double according to digits format
+      println(s"!!!!! out of if : tree.kind = ${tree.kind}")
       tree.kind match {
         case Whole(radix) => lit(intFromDigits(digits, radix))
         case _ => lit(doubleFromDigits(digits))
@@ -750,7 +758,7 @@ class Typer extends Namer
         assignType(cpy.New(tree)(tpt1), tpt1)
     }
 
-  def typedTyped(tree: untpd.Typed, pt: Type)(using Context): Tree = {
+  def typedTyped(tree: untpd.Typed, pt: Type)(using Context): Tree = trace(i"typedTyped($tree, $pt)", gadts) {
 
     /*  Handles three cases:
      *  @param  ifPat    how to handle a pattern (_: T)
@@ -865,9 +873,9 @@ class Typer extends Namer
      */
     val arg1 = pt match {
       case AppliedType(a, typ :: Nil) if ctx.isJava && a.isRef(defn.ArrayClass) =>
-        tryAlternatively { typed(tree.arg, pt) } { 
+        tryAlternatively { typed(tree.arg, pt) } {
             val elemTp = untpd.TypedSplice(TypeTree(typ))
-            typed(untpd.JavaSeqLiteral(tree.arg :: Nil, elemTp), pt) 
+            typed(untpd.JavaSeqLiteral(tree.arg :: Nil, elemTp), pt)
         }
       case _ => typed(tree.arg, pt)
     }
@@ -1364,7 +1372,7 @@ class Typer extends Namer
     assignType(cpy.Closure(tree)(env1, meth1, target), meth1, target)
   }
 
-  def typedMatch(tree: untpd.Match, pt: Type)(using Context): Tree =
+  def typedMatch(tree: untpd.Match, pt: Type)(using Context): Tree = trace(i"typedMatch($tree, $pt)", typr, show = true) {
     tree.selector match {
       case EmptyTree =>
         if (tree.isInline) {
@@ -1406,14 +1414,14 @@ class Typer extends Namer
         }
 
         /** Does `tree` has the same shape as the given match type?
-         *  We only support typed patterns with empty guards, but
-         *  that could potentially be extended in the future.
-         */
+          *  We only support typed patterns with empty guards, but
+          *  that could potentially be extended in the future.
+          */
         def isMatchTypeShaped(mt: MatchType): Boolean =
           mt.cases.size == tree.cases.size
-          && sel1.tpe.frozen_<:<(mt.scrutinee)
-          && tree.cases.forall(_.guard.isEmpty)
-          && tree.cases
+            && sel1.tpe.frozen_<:<(mt.scrutinee)
+            && tree.cases.forall(_.guard.isEmpty)
+            && tree.cases
             .map(cas => untpd.unbind(untpd.unsplice(cas.pat)))
             .zip(mt.cases)
             .forall {
@@ -1460,6 +1468,7 @@ class Typer extends Namer
             result
         }
     }
+  }
 
   /** Special typing of Match tree when the expected type is a MatchType,
    *  and the patterns of the Match tree and the MatchType correspond.
@@ -1529,9 +1538,17 @@ class Typer extends Namer
   }
 
   /** Type a case. */
-  def typedCase(tree: untpd.CaseDef, sel: Tree, wideSelType: Type, pt: Type)(using Context): CaseDef = {
+  def typedCase(tree: untpd.CaseDef, sel: Tree, wideSelType: Type, pt: Type)(using Context): CaseDef = trace.force(i"typedCase($tree, $sel, $wideSelType, $pt)", gadts, res => i"$res") {
     val originalCtx = ctx
     val gadtCtx: Context = ctx.fresh.setFreshGADTBounds
+
+    println(s"!!!!! wideSelType = $wideSelType")
+
+    /** Record scrutinee name */
+    tree.pat match {
+      case Trees.Typed(x: Trees.Ident[_], _) => gadtCtx.gadt.setScrutName(x.name.toString)
+      case _ => ;
+    }
 
     def caseRest(pat: Tree)(using Context) = {
       val pt1 = instantiateMatchTypeProto(pat, pt) match {
@@ -2028,7 +2045,7 @@ class Typer extends Namer
     vdef1.setDefTree
   }
 
-  def typedDefDef(ddef: untpd.DefDef, sym: Symbol)(using Context): Tree = {
+  def typedDefDef(ddef: untpd.DefDef, sym: Symbol)(using Context): Tree = trace(i"typedDefDef($ddef, $sym)", typr, show = true) {
     if (!sym.info.exists) { // it's a discarded synthetic case class method, drop it
       assert(sym.is(Synthetic) && desugar.isRetractableCaseClassMethodName(sym.name))
       sym.owner.info.decls.openForMutations.unlink(sym)
@@ -2533,7 +2550,7 @@ class Typer extends Namer
    *  @param locked      the set of type variables of the current typer state that cannot be interpolated
    *                     at the present time
    */
-  def typedUnadapted(initTree: untpd.Tree, pt: Type, locked: TypeVars)(using Context): Tree = {
+  def typedUnadapted(initTree: untpd.Tree, pt: Type, locked: TypeVars)(using Context): Tree = trace(i"typeUnadapted($initTree, $pt, $locked)", typr, show = true) {
     record("typedUnadapted")
     val xtree = expanded(initTree)
     xtree.removeAttachment(TypedAhead) match {
@@ -3033,7 +3050,7 @@ class Typer extends Namer
    */
   def adapt(tree: Tree, pt: Type, locked: TypeVars, tryGadtHealing: Boolean = true)(using Context): Tree =
     try
-      trace(i"adapting $tree to $pt ${if (tryGadtHealing) "" else "(tryGadtHealing=false)" }\n", typr, show = true) {
+      trace(i"adapting $tree to $pt ${if (tryGadtHealing) "" else "(tryGadtHealing=false)" }", typr, show = true) {
         record("adapt")
         adapt1(tree, pt, locked, tryGadtHealing)
       }
@@ -3690,13 +3707,19 @@ class Typer extends Namer
         pt)
         .showing(i"convert creator $tree -> $result", typr)
 
+    // println(s"***** adapt tree = $tree")
+    // println(s"***** adapt tree.tpe.widen = ${tree.tpe.widen}")
     tree match {
-      case _: MemberDef | _: PackageDef | _: Import | _: WithoutTypeOrPos[?] | _: Closure => tree
+      case _: MemberDef | _: PackageDef | _: Import | _: WithoutTypeOrPos[?] | _: Closure =>
+        // println("***** adapt : case 1")
+        tree
       case _ => tree.tpe.widen match {
         case tp: FlexType =>
+          // println("***** adapt : case 2.1")
           ensureReported(tp)
           tree
         case ref: TermRef =>
+          // println("***** adapt : case 2.2")
           pt match {
             case pt: FunProto
             if needsTupledDual(ref, pt) && autoTuplingEnabled =>
@@ -3705,6 +3728,7 @@ class Typer extends Namer
               adaptOverloaded(ref)
           }
         case poly: PolyType if !(ctx.mode is Mode.Type) =>
+          // println("***** adapt : case 2.3")
           if tree.symbol.isAllOf(ApplyProxyFlags) then newExpr
           else if pt.isInstanceOf[PolyProto] then tree
           else
@@ -3714,8 +3738,10 @@ class Typer extends Namer
             if typeArgs.isEmpty then typeArgs = constrained(poly, tree)._2
             convertNewGenericArray(readapt(tree.appliedToTypeTrees(typeArgs)))
         case wtp =>
+          // println("***** adapt : case 2.4")
           val isStructuralCall = wtp.isValueType && isStructuralTermSelectOrApply(tree)
           if (isStructuralCall)
+            println("***** adapt : case 2.4.1")
             readaptSimplified(handleStructural(tree))
           else pt match {
             case pt: FunProto =>
@@ -3724,8 +3750,11 @@ class Typer extends Namer
             case pt: PolyProto if !wtp.isImplicitMethod =>
               tryInsertApplyOrImplicit(tree, pt, locked)(tree) // error will be reported in typedTypeApply
             case _ =>
+              // println(s"***** adapt : case 2.4.2.3 : ctx.mode = ${ctx.mode}")
               if (ctx.mode is Mode.Type) adaptType(tree.tpe)
-              else adaptNoArgs(wtp)
+              else
+                // println(s"***** adapt : adaptNoArgs")
+                adaptNoArgs(wtp)
           }
       }
     }

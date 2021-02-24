@@ -9,6 +9,7 @@ import Symbols._
 import util.SimpleIdentityMap
 import collection.mutable
 import printing._
+import dotty.tools.dotc.reporting.trace
 
 import Names.Name
 
@@ -147,7 +148,7 @@ final class ProperGadtConstraint private(
       .showing(i"added to constraint: [$poly1] $params%, %\n$debugBoundsDescription", gadts)
   }
 
-  override def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean = {
+  override def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean = trace.force(i"addBound($sym, $bound, ${if isUpper then "upper" else "lower"})", gadts) {
     @annotation.tailrec def stripInternalTypeVar(tp: Type): Type = tp match {
       case tv: TypeVar =>
         val inst = constraint.instType(tv)
@@ -184,8 +185,9 @@ final class ProperGadtConstraint private(
     }, gadts)
   }
 
-  override def isLess(sym1: Symbol, sym2: Symbol)(using Context): Boolean =
+  override def isLess(sym1: Symbol, sym2: Symbol)(using Context): Boolean = trace(i"isLess($sym1, $sym2)", gadtsConstr) {
     constraint.isLess(tvarOrError(sym1).origin, tvarOrError(sym2).origin)
+  }
 
   override def fullBounds(sym: Symbol)(using Context): TypeBounds =
     mapping(sym) match {
@@ -195,7 +197,7 @@ final class ProperGadtConstraint private(
           // .ensuring(containsNoInternalTypes(_))
     }
 
-  override def bounds(sym: Symbol)(using Context): TypeBounds =
+  override def bounds(sym: Symbol)(using Context): TypeBounds = trace.force(i"bounds($sym)", gadts, show = true) {
     mapping(sym) match {
       case null => null
       case tv =>
@@ -206,11 +208,12 @@ final class ProperGadtConstraint private(
             case tb => tb
           }
         retrieveBounds
-          //.showing(i"gadt bounds $sym: $result", gadts)
-          //.ensuring(containsNoInternalTypes(_))
+        //.showing(i"gadt bounds $sym: $result", gadts)
+        //.ensuring(containsNoInternalTypes(_))
     }
+  }
 
-  override def contains(sym: Symbol)(using Context): Boolean = mapping(sym) ne null
+  override def contains(sym: Symbol)(using Context): Boolean = trace(s"contrains(${sym.denot.typeRef})", gadts) { mapping(sym) ne null }
 
   override def approximation(sym: Symbol, fromBelow: Boolean)(using Context): Type = {
     val res = approximation(tvarOrError(sym).origin, fromBelow = fromBelow)
