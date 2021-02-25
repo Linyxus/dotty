@@ -61,6 +61,9 @@ sealed abstract class GadtConstraint extends Showable {
 
   def debugBoundsDescription(using Context): String
 
+  /** Look into the constrainer to find the associated [[TypeVar]] for [[Symbol]] */
+  def debugGetTypeVar(sym: Symbol): TypeVar
+
   /** Record the name of the scrutinee being constrained upon */
   def setScrutName(scrut: String): Unit
   def scrutName: Option[String]
@@ -387,6 +390,8 @@ final class ProperGadtConstraint private(
     sb.result
   }
 
+  override def debugGetTypeVar(sym: Symbol): TypeVar = mapping(sym)
+
   override def setScrutName(scrut: String): Unit = { _scrutName = Some(scrut) }
   override def scrutName: Option[String] = _scrutName
 
@@ -432,4 +437,6 @@ final class ProperGadtConstraint private(
 
   override def scrutStructBounds: List[(Name, Type)] = Nil
   override def patStructBounds: List[(Name, Type)] = Nil
+
+  override def debugGetTypeVar(sym: Symbol): TypeVar = unsupported("EmptyGadtConstraint.debugGetTypeVar")
 }

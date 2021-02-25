@@ -227,6 +227,8 @@ trait PatternTypeConstrainer { self: TypeComparer =>
         ctx.gadt.addTypeMembersToConstraint(patRef) match {
           case (_, false) => false
           case (patSyms, true) => patSyms map { sym =>
+            val tvar = ctx.gadt.debugGetTypeVar(sym)
+            println(i"$sym ~~> $tvar")
           }
         }
 
