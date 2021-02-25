@@ -11,7 +11,7 @@ import collection.mutable
 import printing._
 import dotty.tools.dotc.reporting.trace
 
-import Names.Name
+import Names.{Name, TypeName}
 
 import scala.annotation.internal.sharable
 
@@ -36,6 +36,8 @@ sealed abstract class GadtConstraint extends Showable {
    */
   def addToConstraint(syms: List[Symbol])(using Context): Boolean
   def addToConstraint(sym: Symbol)(using Context): Boolean = addToConstraint(sym :: Nil)
+
+  def addTypeMembersToConstraint(members: List[(Name, TypeBounds)])(using Context): (List[Symbol], Boolean)
 
   /** Further constrain a symbol already present in the constraint. */
   def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean
@@ -99,6 +101,62 @@ final class ProperGadtConstraint private(
     subsumes(extractConstraint(left), extractConstraint(right), extractConstraint(pre))
   }
 
+  override def addTypeMembersToConstraint(members: List[(Name, TypeBounds)])(using Context): (List[Symbol], Boolean) = {
+    import NameKinds.DepParamName
+
+    val poly1 = PolyType(members.map { case (name, _) => DepParamName.fresh(name.toTypeName) })(
+      pt => members.map { (param, bounds) =>
+        // In bound type `tp`, replace the symbols in dependent positions with their internal TypeParamRefs.
+        // The replaced symbols will be later picked up in `ConstraintHandling#addToConstraint`
+        // and used as orderings.
+        def substDependentSyms(tp: Type, isUpper: Boolean)(using Context): Type = {
+          def loop(tp: Type) = substDependentSyms(tp, isUpper)
+          tp match {
+            case tp @ AndType(tp1, tp2) if !isUpper =>
+              tp.derivedAndType(loop(tp1), loop(tp2))
+            case tp @ OrType(tp1, tp2) if isUpper =>
+              tp.derivedOrType(loop(tp1), loop(tp2))
+            // special case for self-reference
+            case TypeRef(RecThis(_), des : TypeName) =>
+              val idx: Int = members map (_._1) indexOf des
+              pt.paramRefs(idx.ensuring(_ != -1, i"should be a type member: $des"))
+            case tp: NamedType =>
+              mapping(tp.symbol) match {
+                // type parameters
+                case tv: TypeVar => tv.origin
+                case null => tp
+              }
+            case tp => tp
+          }
+        }
+
+        val tb = bounds
+        tb.derivedTypeBounds(
+          lo = substDependentSyms(tb.lo, isUpper = false),
+          hi = substDependentSyms(tb.hi, isUpper = true)
+        )
+      },
+      pt => defn.AnyType
+    )
+
+    val syms = poly1.paramRefs map (_.typeSymbol)
+
+    val tvars = syms.lazyZip(poly1.paramRefs).map { case (sym, paramRef) =>
+      val tv = TypeVar(paramRef, creatorState = null)
+      mapping = mapping.updated(sym, tv)
+      reverseMapping = reverseMapping.updated(tv.origin, sym)
+      tv
+    }
+
+    println(s"tvars = $tvars")
+
+    // The replaced symbols are picked up here.
+    val res = addToConstraint(poly1, tvars)
+      .showing(i"added to constraint: [$poly1] $members%, %\n$debugBoundsDescription", gadts)
+
+    (syms, res)
+  }
+
   override def addToConstraint(params: List[Symbol])(using Context): Boolean = {
     import NameKinds.DepParamName
 
@@ -148,7 +206,25 @@ final class ProperGadtConstraint private(
       .showing(i"added to constraint: [$poly1] $params%, %\n$debugBoundsDescription", gadts)
   }
 
-  override def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean = trace.force(i"addBound($sym, $bound, ${if isUpper then "upper" else "lower"})", gadts) {
+  def equalizeTypeVar(tv1: TypeVar, tv2: TypeVar, isUpper: Boolean)(using Context): Boolean = {
+    @annotation.tailrec def stripInternalTypeVar(tp: Type): Type = tp match {
+      case tv: TypeVar =>
+        val inst = constraint.instType(tv)
+        if (inst.exists) stripInternalTypeVar(inst) else tv
+      case _ => tp
+    }
+
+    val symTvar: TypeVar = stripInternalTypeVar(tv1) match {
+      case tv: TypeVar => tv
+      case inst =>
+        gadts.println(i"instantiated: $tv1 -> $inst")
+        return if (isUpper) isSub(inst, tv2) else isSub(tv2, inst)
+    }
+
+    false
+  }
+
+  override def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean = trace(i"addBound($sym, $bound, ${if isUpper then "upper" else "lower"})", gadts) {
     @annotation.tailrec def stripInternalTypeVar(tp: Type): Type = tp match {
       case tv: TypeVar =>
         val inst = constraint.instType(tv)
@@ -197,7 +273,7 @@ final class ProperGadtConstraint private(
           // .ensuring(containsNoInternalTypes(_))
     }
 
-  override def bounds(sym: Symbol)(using Context): TypeBounds = trace.force(i"bounds($sym)", gadts, show = true) {
+  override def bounds(sym: Symbol)(using Context): TypeBounds = trace(i"bounds($sym)", gadts, show = true) {
     mapping(sym) match {
       case null => null
       case tv =>
@@ -335,6 +411,8 @@ final class ProperGadtConstraint private(
 
   override def addToConstraint(params: List[Symbol])(using Context): Boolean = unsupported("EmptyGadtConstraint.addToConstraint")
   override def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean = unsupported("EmptyGadtConstraint.addBound")
+
+  override def addTypeMembersToConstraint(members: List[(Name, TypeBounds)])(using Context): (List[Symbol], Boolean) = unsupported("EmptyGadtConstraint.addTypeMemebrsToCohnstraints")
 
   override def approximation(sym: Symbol, fromBelow: Boolean)(using Context): Type = unsupported("EmptyGadtConstraint.approximation")
 

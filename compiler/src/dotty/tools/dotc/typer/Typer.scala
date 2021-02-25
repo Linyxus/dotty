@@ -634,17 +634,17 @@ class Typer extends Namer
     }
   }
 
-  def typedNumber(tree: untpd.Number, pt: Type)(using Context): Tree = trace.force(i"typedNumber($tree, $pt)", typr, show = true) {
+  def typedNumber(tree: untpd.Number, pt: Type)(using Context): Tree = trace(i"typedNumber($tree, $pt)", typr, show = true) {
     import scala.util.FromDigits._
     import untpd.NumberKind._
     record("typedNumber")
     val digits = tree.digits
     val target = pt.dealias
     def lit(value: Any) = Literal(Constant(value)).withSpan(tree.span)
-    println(s"!!!!! typed number : tree = $tree, pt = $pt")
+    // println(s"!!!!! typed number : tree = $tree, pt = $pt")
     try {
       // Special case primitive numeric types
-      println("!!!!! entering try")
+      // println("!!!!! entering try")
       if (target.isRef(defn.IntClass) ||
           target.isRef(defn.CharClass) ||
           target.isRef(defn.ByteClass) ||
@@ -697,7 +697,7 @@ class Typer extends Namer
           case _ =>
         }
       // Otherwise convert to Int or Double according to digits format
-      println(s"!!!!! out of if : tree.kind = ${tree.kind}")
+      // println(s"!!!!! out of if : tree.kind = ${tree.kind}")
       tree.kind match {
         case Whole(radix) => lit(intFromDigits(digits, radix))
         case _ => lit(doubleFromDigits(digits))
@@ -1538,11 +1538,11 @@ class Typer extends Namer
   }
 
   /** Type a case. */
-  def typedCase(tree: untpd.CaseDef, sel: Tree, wideSelType: Type, pt: Type)(using Context): CaseDef = trace.force(i"typedCase($tree, $sel, $wideSelType, $pt)", gadts, res => i"$res") {
+  def typedCase(tree: untpd.CaseDef, sel: Tree, wideSelType: Type, pt: Type)(using Context): CaseDef = trace(i"typedCase($tree, $sel, $wideSelType, $pt)", gadts, res => i"$res") {
     val originalCtx = ctx
     val gadtCtx: Context = ctx.fresh.setFreshGADTBounds
 
-    println(s"!!!!! wideSelType = $wideSelType")
+    // println(s"!!!!! wideSelType = $wideSelType")
 
     /** Record scrutinee name */
     tree.pat match {
