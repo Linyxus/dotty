@@ -649,25 +649,25 @@ class Typer extends Namer
           target.isRef(defn.CharClass) ||
           target.isRef(defn.ByteClass) ||
           target.isRef(defn.ShortClass))
-        println("!!!!! if case 1")
+        // println("!!!!! if case 1")
         tree.kind match {
           case Whole(radix) => return lit(intFromDigits(digits, radix))
           case _ =>
         }
       else if (target.isRef(defn.LongClass))
-        println("!!!!! if case 2")
+        // println("!!!!! if case 2")
         tree.kind match {
           case Whole(radix) => return lit(longFromDigits(digits, radix))
           case _ =>
         }
       else if (target.isRef(defn.FloatClass))
-        println("!!!!! if case 3")
+        // println("!!!!! if case 3")
         tree.kind match {
           case Whole(16) => // cant parse hex literal as float
           case _         => return lit(floatFromDigits(digits))
         }
       else if (target.isRef(defn.DoubleClass))
-        println("!!!!! if case 4")
+        // println("!!!!! if case 4")
         tree.kind match {
           case Whole(16) => // cant parse hex literal as double
           case _         => return lit(doubleFromDigits(digits))
@@ -675,7 +675,7 @@ class Typer extends Namer
       else if genericNumberLiteralsEnabled
           && target.isValueType && isFullyDefined(target, ForceDegree.none)
       then
-        println("!!!!! if case 5")
+        // println("!!!!! if case 5")
         // If expected type is defined with a FromDigits instance, use that one
         val fromDigitsCls = tree.kind match {
           case Whole(10) => defn.FromDigitsClass
@@ -3741,7 +3741,7 @@ class Typer extends Namer
           // println("***** adapt : case 2.4")
           val isStructuralCall = wtp.isValueType && isStructuralTermSelectOrApply(tree)
           if (isStructuralCall)
-            println("***** adapt : case 2.4.1")
+            // println("***** adapt : case 2.4.1")
             readaptSimplified(handleStructural(tree))
           else pt match {
             case pt: FunProto =>

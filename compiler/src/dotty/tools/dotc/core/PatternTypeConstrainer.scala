@@ -199,40 +199,53 @@ trait PatternTypeConstrainer { self: TypeComparer =>
     val showRef: List[(Name, TypeBounds)] => String = _ map { case (name, bounds) => i"$name >: ${bounds.lo} <: ${bounds.hi}" } mkString "\n"
 
     def constrainTypeMembers(patRef: List[(Name, TypeBounds)], scrutRef: List[(Name, TypeBounds)]): Boolean =
-      trace.force(s"constrainTypeMembers(patRef =\n${showRef(patRef)},\nscrutRef =\n${showRef(scrutRef)})",gadts) {
-        def addTypeMembers(ref: List[(Name, TypeBounds)]): Boolean = true
+      trace(s"constrainTypeMembers(patRef =\n${showRef(patRef)},\nscrutRef =\n${showRef(scrutRef)})",gadts) {
+        def constrainTypeMembers(ref: List[(Name, TypeBounds)]): Option[List[Name]] = ctx.gadt.addTypeMembersToConstraint(ref)
 
-        // patRef map { case (_, bounds) =>
-        //   bounds.hi match {
-        //     case TypeRef(RecThis(_), des : TypeName) =>
-        //       val idx = patRef map (_._1) indexOf(des)
-        //       println(s"rec this type name : $des, idx $idx")
-        //     case tp => println(tp)
+        // val allRef = patRef ++ scrutRef
+        // val allNames = allRef map { _._1 }
+        // val uniqueNames = allNames.reverse.distinct.reverse
+
+        // val allBounds = uniqueNames map { name =>
+        //   name -> {
+        //     allRef filter {_._1 == name} map {_._2}
         //   }
         // }
 
-        val refs = patRef ++ scrutRef
-        val names = (refs map (_._1)).reverse.distinct.reverse
-        val refInfo = names map { name =>
-          (name, refs filter (_._1 == name) map (_._2))
-        }
+        // for
+        //   (name, bounds) <- allBounds
+        //   bd <- bounds
+        // do
+        //   println(i"$name ~ $bd")
+
+        // constrainTypeMembers(uniqueNames map { name => (name, TypeBounds(defn.NothingType, defn.AnyType)) } ) match {
+        //   case None => false
+        //   case Some(tvars) =>
+        //     ???
+        // }
 
 
-        def fusedRef = refInfo map { case (name, bounds) =>
-          val lo = bounds map (_.lo)
-          val hi = bounds map (_.hi)
-          (name, TypeBounds(typeBuilder(lo, (a, b) => OrType(a, b, soft = false)), typeBuilder(hi, (a, b) => AndType(a, b))))
-        }
-
-        ctx.gadt.addTypeMembersToConstraint(patRef) match {
-          case (_, false) => false
-          case (patSyms, true) => patSyms map { sym =>
-            val tvar = ctx.gadt.debugGetTypeVar(sym)
-            println(i"$sym ~~> $tvar")
+        { for
+            patRes <- constrainTypeMembers(patRef)
+            scrutRes <- constrainTypeMembers(scrutRef)
+          yield {
+            val names = (patRef ++ scrutRef) map (_._1)
+            val res = (patRes ++ scrutRes) zip names
+            val resOk = res groupBy (_._2) map {
+              case (origName, (a, _) :: (b, _) :: Nil) =>
+                println(ctx.gadt.debugBoundsDescription)
+                // println(i"$origName : $a === $b")
+                ctx.gadt.equalizeNames(b, a)
+              case _ => true
+            }
+            resOk.forall(identity)
           }
+        } match {
+          case None =>
+            false
+          case Some(x) =>
+            x
         }
-
-        true
       }
 
     // collect refined type members
