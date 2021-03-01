@@ -120,37 +120,45 @@ final class ProperGadtConstraint private(
 
     val names = members map (_._1) map (x => DepParamName.fresh(x.toTypeName))
 
-    val poly1 = PolyType(names)(
-      pt => members.map { (param, bounds) =>
-        // In bound type `tp`, replace the symbols in dependent positions with their internal TypeParamRefs.
-        // The replaced symbols will be later picked up in `ConstraintHandling#addToConstraint`
-        // and used as orderings.
-        def substDependentSyms(tp: Type, isUpper: Boolean)(using Context): Type = {
-          def loop(tp: Type) = substDependentSyms(tp, isUpper)
-          tp match {
-            case tp @ AndType(tp1, tp2) if !isUpper =>
-              tp.derivedAndType(loop(tp1), loop(tp2))
-            case tp @ OrType(tp1, tp2) if isUpper =>
-              tp.derivedOrType(loop(tp1), loop(tp2))
-            // special case for self-reference
-            case TypeRef(RecThis(_), des : TypeName) =>
-              val idx: Int = members map (_._1) indexOf des
-              pt.paramRefs(idx.ensuring(_ != -1, i"should be a type member: $des"))
-            case tp: NamedType =>
-              mapping(tp.symbol) match {
-                // type parameters
-                case tv: TypeVar => tv.origin
-                case null => tp
-              }
-            case tp => tp
-          }
+    def processBounds(pt: PolyType, tb: TypeBounds): TypeBounds = {
+      def substDependentSyms(tp: Type, isUpper: Boolean)(using Context): Type = {
+        def loop(tp: Type) = substDependentSyms(tp, isUpper)
+        tp match {
+          case tp @ AndType(tp1, tp2) =>
+            tp.derivedAndType(loop(tp1), loop(tp2))
+          case tp @ OrType(tp1, tp2) =>
+            tp.derivedOrType(loop(tp1), loop(tp2))
+          // special case for self-reference
+          case TypeRef(RecThis(_), des : TypeName) =>
+            val idx: Int = members map (_._1) indexOf des
+            pt.paramRefs(idx.ensuring(_ != -1, i"should be a type member: $des"))
+          case tp: NamedType =>
+            mapping(tp.symbol) match {
+              // type parameters
+              case tv: TypeVar => tv.origin
+              case null => tp
+            }
+          case tp => tp
         }
+      }
 
-        val tb = bounds
-        tb.derivedTypeBounds(
-          lo = substDependentSyms(tb.lo, isUpper = false),
-          hi = substDependentSyms(tb.hi, isUpper = true)
-        )
+      tb match {
+        case alias : TypeAlias =>
+          alias.derivedAlias(substDependentSyms(alias.lo, isUpper = false))
+        case _ =>
+          tb.derivedTypeBounds(
+            lo = substDependentSyms(tb.lo, isUpper = false),
+            hi = substDependentSyms(tb.hi, isUpper = true)
+          )
+      }
+    }
+
+    val poly1 = PolyType(names)(
+      pt => members map { case (name, bounds) =>
+        val bounds2 = processBounds(pt, bounds)
+        // TypeBounds(defn.NothingType, defn.AnyType)
+        gadts.println(i"processed bounds of $name : $bounds2")
+        bounds2
       },
       pt => defn.AnyType
     )
@@ -165,8 +173,16 @@ final class ProperGadtConstraint private(
     // println(s"tvars = $tvars")
 
     // The replaced symbols are picked up here.
-    val res = addToConstraint(poly1, tvars)
-      .showing(i"added to constraint: [$poly1] $members%, %\n$debugBoundsDescription", gadts)
+    val res = {
+      addToConstraint(poly1, tvars)
+        .showing(i"added to constraint: [$poly1] $members%, %\n$debugBoundsDescription", gadts)
+    }
+    // def addBoundOk = names lazyZip { members map (_._2) } flatMap { case (name, tbs) =>
+    //   tbs map { tb =>
+    //     val tb1 = processBounds(poly1, tb)
+    //     addBoundForName(name, tb1.lo, isUpper = false) && addBoundForName(name, tb1.hi, isUpper = true)
+    //   }
+    // }
 
     if res then Some(names) else None
   }
@@ -264,9 +280,34 @@ final class ProperGadtConstraint private(
   def addBoundForTypeVar(tvar: TypeVar, bound: Type, isUpper: Boolean)(using Context): Boolean = _addBound(identity[TypeVar])(tvar, bound, isUpper)
 
   override def equalizeNames(name1: Name, name2: Name)(using Context): Boolean = {
+    @annotation.tailrec def stripInternalTypeVar(tp: Type): Type = tp match {
+      case tv: TypeVar =>
+        val inst = constraint.instType(tv)
+        if (inst.exists) stripInternalTypeVar(inst) else tv
+      case _ => tp
+    }
+
     val tvar1 = tvarOrError(nameMapping)(name1)
     val tvar2 = tvarOrError(nameMapping)(name2)
-    addBoundForName(name1, tvar2, isUpper = false) && addBoundForName(name2, tvar1, isUpper = false)
+    gadts.println(i"equalize typevar of names: $tvar1 === $tvar2")
+
+    val stv1 = stripInternalTypeVar(tvar1)
+    val stv2 = stripInternalTypeVar(tvar2)
+
+    (stripInternalTypeVar(stv1), stripInternalTypeVar(stv2)) match {
+      case (stv1 : TypeVar, stv2 : TypeVar) =>
+        gadts.println(i"both uninstanstiaed : $stv1 =:= $stv2")
+        addBoundForName(name1, stv2, isUpper = false) && addBoundForName(name2, stv1, isUpper = false)
+      case (inst1, _ : TypeVar) =>
+        gadts.println(i"name1 instanstiaed : $tvar1 ~> $inst1")
+        addBoundForName(name2, inst1, isUpper = false) && addBoundForName(name2, inst1, isUpper = true)
+      case (_ : TypeVar, inst2) =>
+        gadts.println(i"name2 instanstiaed : $tvar2 ~> $inst2")
+        addBoundForName(name1, inst2, isUpper = false) && addBoundForName(name1, inst2, isUpper = true)
+      case (inst1, inst2) =>
+        gadts.println(i"both instanstiaed : $tvar1 ~> $inst1 , $tvar2 ~> $inst2")
+        isSame(inst1, inst2)
+    }
   }
 
   // override def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean = trace(i"addBound($sym, $bound, ${if isUpper then "upper" else "lower"})", gadts) {

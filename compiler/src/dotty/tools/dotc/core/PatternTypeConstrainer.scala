@@ -215,13 +215,13 @@ trait PatternTypeConstrainer { self: TypeComparer =>
         // for
         //   (name, bounds) <- allBounds
         //   bd <- bounds
-        // do
+        // do {
         //   println(i"$name ~ $bd")
+        // }
 
-        // constrainTypeMembers(uniqueNames map { name => (name, TypeBounds(defn.NothingType, defn.AnyType)) } ) match {
+        // constrainTypeMembers(allBounds) match {
         //   case None => false
-        //   case Some(tvars) =>
-        //     ???
+        //   case Some(tvars) => true
         // }
 
 
@@ -233,8 +233,6 @@ trait PatternTypeConstrainer { self: TypeComparer =>
             val res = (patRes ++ scrutRes) zip names
             val resOk = res groupBy (_._2) map {
               case (origName, (a, _) :: (b, _) :: Nil) =>
-                println(ctx.gadt.debugBoundsDescription)
-                // println(i"$origName : $a === $b")
                 ctx.gadt.equalizeNames(b, a)
               case _ => true
             }
@@ -336,7 +334,7 @@ trait PatternTypeConstrainer { self: TypeComparer =>
       if migrateTo3 || refinementIsInvariant(patternTp) then scrutineeTp
       else widenVariantParams(scrutineeTp)
     val narrowTp = SkolemType(patternTp)
-    trace.force(i"constraining simple pattern type $narrowTp <:< $widePt", gadts, res => s"$res\ngadt = ${ctx.gadt.debugBoundsDescription}") {
+    trace(i"constraining simple pattern type $narrowTp <:< $widePt", gadts, res => s"$res\ngadt = ${ctx.gadt.debugBoundsDescription}") {
       isSubType(narrowTp, widePt)
     }
   }
