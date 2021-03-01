@@ -296,16 +296,16 @@ final class ProperGadtConstraint private(
 
     (stripInternalTypeVar(stv1), stripInternalTypeVar(stv2)) match {
       case (stv1 : TypeVar, stv2 : TypeVar) =>
-        gadts.println(i"both uninstanstiaed : $stv1 =:= $stv2")
+        gadts.println(i"both uninstanstiated : $stv1 =:= $stv2")
         addBoundForName(name1, stv2, isUpper = false) && addBoundForName(name2, stv1, isUpper = false)
       case (inst1, _ : TypeVar) =>
-        gadts.println(i"name1 instanstiaed : $tvar1 ~> $inst1")
+        gadts.println(i"name1 instanstiated : $tvar1 ~> $inst1")
         addBoundForName(name2, inst1, isUpper = false) && addBoundForName(name2, inst1, isUpper = true)
       case (_ : TypeVar, inst2) =>
-        gadts.println(i"name2 instanstiaed : $tvar2 ~> $inst2")
+        gadts.println(i"name2 instanstiated : $tvar2 ~> $inst2")
         addBoundForName(name1, inst2, isUpper = false) && addBoundForName(name1, inst2, isUpper = true)
       case (inst1, inst2) =>
-        gadts.println(i"both instanstiaed : $tvar1 ~> $inst1 , $tvar2 ~> $inst2")
+        gadts.println(i"both instanstiated : $tvar1 ~> $inst1 , $tvar2 ~> $inst2")
         isSame(inst1, inst2)
     }
   }
