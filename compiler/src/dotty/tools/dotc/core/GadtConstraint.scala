@@ -25,6 +25,7 @@ sealed abstract class GadtConstraint extends Showable {
    * @note this performs subtype checks between ordered symbols.
    *       Using this in isSubType can lead to infinite recursion. Consider `bounds` instead.
    */
+
   def fullBounds(sym: Symbol)(using Context): TypeBounds
   def fullBoundsForName(name: Name)(using Context): TypeBounds
 
@@ -38,7 +39,7 @@ sealed abstract class GadtConstraint extends Showable {
   def addToConstraint(syms: List[Symbol])(using Context): Boolean
   def addToConstraint(sym: Symbol)(using Context): Boolean = addToConstraint(sym :: Nil)
 
-  def addTypeMembersToConstraint(members: List[(Name, TypeBounds)])(using Context): Option[List[Name]]
+  def addTypeMembersToConstraint(memberNames: List[Name], memberBounds: List[(Name, TypeBounds)])(using Context): Option[List[Name]]
 
   /** Further constrain a symbol already present in the constraint. */
   def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean
@@ -115,50 +116,14 @@ final class ProperGadtConstraint private(
     subsumes(extractConstraint(left), extractConstraint(right), extractConstraint(pre))
   }
 
-  override def addTypeMembersToConstraint(members: List[(Name, TypeBounds)])(using Context): Option[List[Name]] = {
+  override def addTypeMembersToConstraint(memberNames: List[Name], memberBounds: List[(Name, TypeBounds)])(using Context): Option[List[Name]] = {
     import NameKinds.DepParamName
 
-    val names = members map (_._1) map (x => DepParamName.fresh(x.toTypeName))
-
-    def processBounds(pt: PolyType, tb: TypeBounds): TypeBounds = {
-      def substDependentSyms(tp: Type, isUpper: Boolean)(using Context): Type = {
-        def loop(tp: Type) = substDependentSyms(tp, isUpper)
-        tp match {
-          case tp @ AndType(tp1, tp2) =>
-            tp.derivedAndType(loop(tp1), loop(tp2))
-          case tp @ OrType(tp1, tp2) =>
-            tp.derivedOrType(loop(tp1), loop(tp2))
-          // special case for self-reference
-          case TypeRef(RecThis(_), des : TypeName) =>
-            val idx: Int = members map (_._1) indexOf des
-            pt.paramRefs(idx.ensuring(_ != -1, i"should be a type member: $des"))
-          case tp: NamedType =>
-            mapping(tp.symbol) match {
-              // type parameters
-              case tv: TypeVar => tv.origin
-              case null => tp
-            }
-          case tp => tp
-        }
-      }
-
-      tb match {
-        case alias : TypeAlias =>
-          alias.derivedAlias(substDependentSyms(alias.lo, isUpper = false))
-        case _ =>
-          tb.derivedTypeBounds(
-            lo = substDependentSyms(tb.lo, isUpper = false),
-            hi = substDependentSyms(tb.hi, isUpper = true)
-          )
-      }
-    }
+    val names = memberNames map (x => DepParamName.fresh(x.toTypeName))
 
     val poly1 = PolyType(names)(
-      pt => members map { case (name, bounds) =>
-        val bounds2 = processBounds(pt, bounds)
-        // TypeBounds(defn.NothingType, defn.AnyType)
-        gadts.println(i"processed bounds of $name : $bounds2")
-        bounds2
+      pt => memberNames map { _ =>
+        TypeBounds(defn.NothingType, defn.AnyType)
       },
       pt => defn.AnyType
     )
@@ -170,21 +135,78 @@ final class ProperGadtConstraint private(
       tv
     }
 
-    // println(s"tvars = $tvars")
+    def typeVarOfOrigName(name: Name): TypeVar = {
+      val idx: Int = memberNames indexOf name
+      tvars(idx.ensuring(_ != -1, i"should be a type member: $name"))
+    }
+
+    def processBounds(tb: TypeBounds): TypeBounds = {
+      def substDependentSyms(tp: Type, isUpper: Boolean)(using Context): Type = {
+        def loop(tp: Type) = substDependentSyms(tp, isUpper)
+        tp match {
+          case tp @ AndType(tp1, tp2) =>
+            tp.derivedAndType(loop(tp1), loop(tp2))
+          case tp @ OrType(tp1, tp2) =>
+            tp.derivedOrType(loop(tp1), loop(tp2))
+          // special case for self-reference
+          case TypeRef(RecThis(_), des : TypeName) =>
+            stripInternalTypeVar(typeVarOfOrigName(des))
+          case tp: NamedType =>
+            mapping(tp.symbol) match {
+              // type parameters
+              case tv: TypeVar => tv
+              case null => tp
+            }
+          case tp => tp
+        }
+      }
+      tb match {
+        case alias : TypeAlias =>
+          alias.derivedAlias(substDependentSyms(alias.lo, isUpper = false))
+        case _ =>
+          tb.derivedTypeBounds(
+            lo = substDependentSyms(tb.lo, isUpper = false),
+            hi = substDependentSyms(tb.hi, isUpper = true)
+          )
+      }
+    }
+
+
+    @annotation.tailrec def stripInternalTypeVar(tp: Type): Type = tp match {
+      case tv: TypeVar =>
+        val inst = constraint.instType(tv)
+        if (inst.exists) stripInternalTypeVar(inst) else tv
+      case _ => tp
+    }
+
+    def addLessBound(t1: Type, t2: Type): Boolean = trace(i"addLessBounds(t1 = $t1, t2 = $t2)", gadts) {
+      (t1, t2) match {
+        case (tv1 : TypeVar, _) => addBoundForTypeVar(tv1, t2, isUpper = true)
+        case (t1, tv2 : TypeVar) => addBoundForTypeVar(tv2, t1, isUpper = false)
+        case (t1, t2) => isSub(t1, t2)
+      }
+    }
 
     // The replaced symbols are picked up here.
     val res = {
       addToConstraint(poly1, tvars)
-        .showing(i"added to constraint: [$poly1] $members%, %\n$debugBoundsDescription", gadts)
+        .showing(i"added to constraint: [$poly1] $memberNames ($memberBounds)%, %\n$debugBoundsDescription", gadts)
     }
-    // def addBoundOk = names lazyZip { members map (_._2) } flatMap { case (name, tbs) =>
-    //   tbs map { tb =>
-    //     val tb1 = processBounds(poly1, tb)
-    //     addBoundForName(name, tb1.lo, isUpper = false) && addBoundForName(name, tb1.hi, isUpper = true)
-    //   }
-    // }
 
-    if res then Some(names) else None
+    def addBoundOk = {
+      memberBounds map { case (name, bd) =>
+        val tvar1 = stripInternalTypeVar(typeVarOfOrigName(name))
+        val bounds = processBounds(bd)
+
+        {
+          bounds.lo.isRef(defn.NothingClass) || addLessBound(bounds.lo, tvar1)
+        } && {
+          bounds.hi.isAny || addLessBound(tvar1, bounds.hi)
+        }
+      }
+    } forall identity
+
+    if res && addBoundOk then Some(names) else None
   }
 
   override def addToConstraint(params: List[Symbol])(using Context): Boolean = {
@@ -519,7 +541,7 @@ final class ProperGadtConstraint private(
 
   override def equalizeNames(name1: Name, name2: Name)(using Context): Boolean = unsupported("EmptyGadtConstraint.equalizeNames")
 
-  override def addTypeMembersToConstraint(members: List[(Name, TypeBounds)])(using Context): Option[List[Name]] = unsupported("EmptyGadtConstraint.addTypeMemebrsToCohnstraints")
+  override def addTypeMembersToConstraint(memberNames: List[Name], memberBounds: List[(Name, TypeBounds)])(using Context): Option[List[Name]] = unsupported("EmptyGadtConstraint.addTypeMemebrsToCohnstraints")
 
   override def approximation(sym: Symbol, fromBelow: Boolean)(using Context): Type = unsupported("EmptyGadtConstraint.approximation")
 

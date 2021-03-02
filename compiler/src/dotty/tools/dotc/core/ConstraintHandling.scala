@@ -489,10 +489,10 @@ trait ConstraintHandling {
    */
   def addToConstraint(tl: TypeLambda, tvars: List[TypeVar])(using Context): Boolean =
     checkPropagated(i"initialized $tl") {
-      constr.println(i"tl = $tl, tvars = $tvars")
-      constr.println(i"before constraint = $constraint")
+      // constr.println(i"tl = $tl, tvars = $tvars")
+      // constr.println(i"before constraint = $constraint")
       constraint = constraint.add(tl, tvars)
-      constr.println(i"after constraint = $constraint")
+      // constr.println(i"after constraint = $constraint")
       tl.paramRefs.forall { param =>
         constraint.entry(param) match {
           case bounds: TypeBounds =>
