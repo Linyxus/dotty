@@ -173,7 +173,7 @@ final class ProperGadtConstraint private(
     // println(s"tvars = $tvars")
 
     // The replaced symbols are picked up here.
-    val res = {
+    val res = constr.force {
       addToConstraint(poly1, tvars)
         .showing(i"added to constraint: [$poly1] $members%, %\n$debugBoundsDescription", gadts)
     }

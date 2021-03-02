@@ -227,7 +227,17 @@ trait PatternTypeConstrainer { self: TypeComparer =>
 
         { for
             patRes <- constrainTypeMembers(patRef)
+            _ <- {
+              println("##### after constraining pattern type members:")
+              println(ctx.gadt.debugBoundsDescription)
+              Some(())
+            }
             scrutRes <- constrainTypeMembers(scrutRef)
+            _ <- {
+              println("##### after constraining scrutinee type members:")
+              println(ctx.gadt.debugBoundsDescription)
+              Some(())
+            }
           yield {
             val names = (patRef ++ scrutRef) map (_._1)
             val res = (patRes ++ scrutRes) zip names
