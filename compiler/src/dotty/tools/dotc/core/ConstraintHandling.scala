@@ -489,26 +489,34 @@ trait ConstraintHandling {
    */
   def addToConstraint(tl: TypeLambda, tvars: List[TypeVar])(using Context): Boolean =
     checkPropagated(i"initialized $tl") {
-      // constr.println(i"tl = $tl, tvars = $tvars")
-      // constr.println(i"before constraint = $constraint")
+      constr.println(i"*** addToConstraint: tl = $tl, tvars = $tvars")
+      constr.println(i"*** addToConstraint: before constraint = $constraint")
       constraint = constraint.add(tl, tvars)
-      // constr.println(i"after constraint = $constraint")
-      tl.paramRefs.forall { param =>
+      constr.println(i"*** addToConstriant: after constraint = $constraint")
+      val res = tl.paramRefs.forall { param =>
         constraint.entry(param) match {
           case bounds: TypeBounds =>
             val lower = constraint.lower(param)
+            constr.println(i"*** addToConstriant: $param lower = $lower")
             val upper = constraint.upper(param)
+            constr.println(i"*** addToConstriant: $param upper = $upper")
             if lower.nonEmpty && !bounds.lo.isRef(defn.NothingClass)
                || upper.nonEmpty && !bounds.hi.isAny
             then constr.println(i"INIT*** $tl")
             lower.forall(addOneBound(_, bounds.hi, isUpper = true)) &&
               upper.forall(addOneBound(_, bounds.lo, isUpper = false))
-          case _ =>
+          case x =>
+            constr.println(i"*** addToConstraint: $param solved = $x")
             // Happens if param was already solved while processing earlier params of the same TypeLambda.
             // See #4720.
             true
         }
       }
+      constr.println(i"*** addToConstriant: AGAIN after constraint = $constraint")
+      // tvars foreach { tvar =>
+      //   println(i"*** addToConstraint: $tvar ~~> ${constraint.instType(tvar)}")
+      // }
+      res
     }
 
   /** Can `param` be constrained with new bounds? */

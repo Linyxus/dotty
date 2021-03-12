@@ -8,6 +8,7 @@ import collection.mutable
 import printing.Printer
 import printing.Texts._
 import config.Config
+import dotty.tools.dotc.reporting.trace
 import config.Printers.constr
 import reflect.ClassTag
 import annotation.tailrec
@@ -128,9 +129,9 @@ import OrderingConstraint._
  *               to a parameter P of the type lambda; it contains all constrained parameters
  *               Q that are known to be greater than P, i.e. P <: Q.
  */
-class OrderingConstraint(private val boundsMap: ParamBounds,
-                         private val lowerMap : ParamOrdering,
-                         private val upperMap : ParamOrdering) extends Constraint {
+class OrderingConstraint(val boundsMap: ParamBounds,
+                         val lowerMap : ParamOrdering,
+                         val upperMap : ParamOrdering) extends Constraint {
 
   type This = OrderingConstraint
 
@@ -168,7 +169,10 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
 
 // ---------- Dependency handling ----------------------------------------------
 
-  def lower(param: TypeParamRef): List[TypeParamRef] = lowerLens(this, param.binder, param.paramNum)
+  def lower(param: TypeParamRef): List[TypeParamRef] = {
+    // println(s"*** constraint.lower(param = $param) : lowerMap = $lowerMap")
+    lowerLens(this, param.binder, param.paramNum)
+  }
   def upper(param: TypeParamRef): List[TypeParamRef] = upperLens(this, param.binder, param.paramNum)
 
   def minLower(param: TypeParamRef): List[TypeParamRef] = {
@@ -265,10 +269,12 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
 
   def add(poly: TypeLambda, tvars: List[TypeVar])(using Context): This = {
     assert(!contains(poly))
+    // println(i"*** constraint.add before : lowerMap = $lowerMap")
     val nparams = poly.paramNames.length
     val entries1 = new Array[Type](nparams * 2)
     poly.paramInfos.copyToArray(entries1, 0)
     tvars.copyToArray(entries1, nparams)
+    // println(i"*** constraint.add after : lowerMap = $lowerMap")
     newConstraint(boundsMap.updated(poly, entries1), lowerMap, upperMap).init(poly)
   }
 
@@ -277,6 +283,7 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
    *  dependent parameters.
    */
   private def init(poly: TypeLambda)(using Context): This = {
+    // println(i"*** constraint.init before : lowerMap = $lowerMap")
     var current = this
     val todos = new mutable.ListBuffer[(OrderingConstraint, TypeParamRef) => OrderingConstraint]
     var i = 0
@@ -289,6 +296,7 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
         todos.dropInPlace(1)
       i += 1
     }
+    // println(i"*** constraint.init after : lowerMap = $lowerMap")
     current.checkNonCyclic()
   }
 
@@ -527,10 +535,16 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
     current.checkNonCyclic()
   }
 
-  def instType(tvar: TypeVar): Type = entry(tvar.origin) match
-    case _: TypeBounds => NoType
-    case tp: TypeParamRef => typeVarOfParam(tp).orElse(tp)
-    case tp => tp
+  def instType(tvar: TypeVar): Type = {
+    // println(s"instType(tvar = $tvar)")
+    // println(s" >> entry(tvar.origin = ${tvar.origin}) = ${entry(tvar.origin)}")
+    entry(tvar.origin) match
+      case _: TypeBounds => NoType
+      case tp: TypeParamRef =>
+        // println(s" >>> typeVarOfParam(tp = ${tp}) = ${typeVarOfParam(tp)}")
+        typeVarOfParam(tp).orElse(tp)
+      case tp => tp
+  }
 
   def ensureFresh(tl: TypeLambda)(using Context): TypeLambda =
     if (contains(tl)) {

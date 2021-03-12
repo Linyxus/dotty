@@ -39,7 +39,8 @@ sealed abstract class GadtConstraint extends Showable {
   def addToConstraint(syms: List[Symbol])(using Context): Boolean
   def addToConstraint(sym: Symbol)(using Context): Boolean = addToConstraint(sym :: Nil)
 
-  def addTypeMembersToConstraint(memberNames: List[Name], memberBounds: List[(Name, TypeBounds)])(using Context): Option[List[Name]]
+  /** Add type members with bounds to constraint, correctly handling inter-dependencies. */
+  def addTypeMembersToConstraint(memberNames: List[Name], memberBounds: List[(Name, TypeBounds)], recur: (Type, Type) => Boolean)(using Context): Option[List[Name]]
 
   /** Further constrain a symbol already present in the constraint. */
   def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean
@@ -116,7 +117,7 @@ final class ProperGadtConstraint private(
     subsumes(extractConstraint(left), extractConstraint(right), extractConstraint(pre))
   }
 
-  override def addTypeMembersToConstraint(memberNames: List[Name], memberBounds: List[(Name, TypeBounds)])(using Context): Option[List[Name]] = {
+  override def addTypeMembersToConstraint(memberNames: List[Name], memberBounds: List[(Name, TypeBounds)], recur: (Type, Type) => Boolean)(using Context): Option[List[Name]] = {
     import NameKinds.DepParamName
 
     val names = memberNames map (x => DepParamName.fresh(x.toTypeName))
@@ -179,11 +180,11 @@ final class ProperGadtConstraint private(
       case _ => tp
     }
 
-    def addLessBound(t1: Type, t2: Type): Boolean = trace(i"addLessBounds(t1 = $t1, t2 = $t2)", gadts) {
+    def addLessBound(t1: Type, t2: Type): Boolean = trace.force(i"addLessBounds(t1 = $t1, t2 = $t2)", gadts) {
       (t1, t2) match {
         case (tv1 : TypeVar, _) => addBoundForTypeVar(tv1, t2, isUpper = true)
         case (t1, tv2 : TypeVar) => addBoundForTypeVar(tv2, t1, isUpper = false)
-        case (t1, t2) => isSub(t1, t2)
+        case (t1, t2) => recur(t1, t2)
       }
     }
 
@@ -295,7 +296,11 @@ final class ProperGadtConstraint private(
     }, gadts)
   }
 
-  override def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean = trace(i"addBound($sym, $bound, ${if isUpper then "upper" else "lower"})", gadts) { _addBound(mapping)(sym, bound, isUpper) }
+  override def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean = trace.force(i"addBound($sym, $bound, ${if isUpper then "upper" else "lower"})", gadts) {
+    val res = _addBound(mapping)(sym, bound, isUpper)
+    println(debugBoundsDescription)
+    res
+  }
 
   private def addBoundForName(name: Name, bound: Type, isUpper: Boolean)(using Context): Boolean = _addBound(nameMapping)(name, bound, isUpper)
 
@@ -541,7 +546,7 @@ final class ProperGadtConstraint private(
 
   override def equalizeNames(name1: Name, name2: Name)(using Context): Boolean = unsupported("EmptyGadtConstraint.equalizeNames")
 
-  override def addTypeMembersToConstraint(memberNames: List[Name], memberBounds: List[(Name, TypeBounds)])(using Context): Option[List[Name]] = unsupported("EmptyGadtConstraint.addTypeMemebrsToCohnstraints")
+  override def addTypeMembersToConstraint(memberNames: List[Name], memberBounds: List[(Name, TypeBounds)], recur: (Type, Type) => Boolean)(using Context): Option[List[Name]] = unsupported("EmptyGadtConstraint.addTypeMemebrsToCohnstraints")
 
   override def approximation(sym: Symbol, fromBelow: Boolean)(using Context): Type = unsupported("EmptyGadtConstraint.approximation")
 
