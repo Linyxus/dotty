@@ -200,7 +200,11 @@ trait PatternTypeConstrainer { self: TypeComparer =>
 
     def constrainTypeMembers(patRef: List[(Name, TypeBounds)], scrutRef: List[(Name, TypeBounds)]): Boolean =
       trace(s"constrainTypeMembers(patRef =\n${showRef(patRef)},\nscrutRef =\n${showRef(scrutRef)})",gadts) {
-        def constrainTypeMembers(ref: List[(Name, TypeBounds)]): Option[List[Name]] = ctx.gadt.addTypeMembersToConstraint(ref)
+        def constrainTypeMembers(ref: List[(Name, TypeBounds)]): Option[List[Name]] =
+          if ref.nonEmpty then
+            ctx.gadt.addTypeMembersToConstraint(ref)
+          else
+            Some(Nil)
 
         // val allRef = patRef ++ scrutRef
         // val allNames = allRef map { _._1 }
@@ -261,7 +265,7 @@ trait PatternTypeConstrainer { self: TypeComparer =>
     val scrutRef = collectRefinement(scrut)
 
     // only constrain type members when both are refined
-    if patRef.nonEmpty && scrutRef.nonEmpty then {
+    if patRef.nonEmpty || scrutRef.nonEmpty then {
       constrainTypeMembers(patRef, scrutRef)
     }
 
