@@ -201,11 +201,11 @@ final class ProperGadtConstraint private(
 
         // for any bound X >: L <: H
         {
-          // add X <: H
-          bounds.hi.isAny || addUpperBound(tvar1, bounds.hi)
-        } && {
           // add L <: X
           bounds.lo.isRef(defn.NothingClass) || addUpperBound(bounds.lo, tvar1)
+        } && {
+          // add X <: H
+          bounds.hi.isAny || addUpperBound(tvar1, bounds.hi)
         }
       }
     } forall identity
