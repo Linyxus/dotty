@@ -32,7 +32,7 @@ object Printers {
 
   val default = new Printer
 
-  val constr = noPrinter
+  val constr = new SwitchedPrinter(defaultOn = false)
   val core = noPrinter
   val checks = noPrinter
   val config = noPrinter
@@ -42,7 +42,7 @@ object Printers {
   val desugar = noPrinter
   val dottydoc = noPrinter
   val exhaustivity = noPrinter
-  val gadts = new SwitchedPrinter(defaultOn = true)
+  val gadts = new SwitchedPrinter(defaultOn = false)
   val gadtsConstr = new SwitchedPrinter(defaultOn = false)
   val hk = noPrinter
   val implicits = noPrinter

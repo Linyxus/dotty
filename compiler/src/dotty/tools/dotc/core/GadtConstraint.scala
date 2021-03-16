@@ -180,11 +180,11 @@ final class ProperGadtConstraint private(
       case _ => tp
     }
 
-    def addLessBound(t1: Type, t2: Type): Boolean = trace.force(i"addLessBounds(t1 = $t1, t2 = $t2)", gadts) {
+    def addUpperBound(t1: Type, t2: Type): Boolean = trace(i"addUpperBound(t1 = $t1, t2 = $t2)", gadts, res => i"$res\n${debugBoundsDescription}") {
       (t1, t2) match {
         case (tv1 : TypeVar, _) => addBoundForTypeVar(tv1, t2, isUpper = true)
         case (t1, tv2 : TypeVar) => addBoundForTypeVar(tv2, t1, isUpper = false)
-        case (t1, t2) => recur(t1, t2)
+        case (t1, t2) => isSub(t1, t2)
       }
     }
 
@@ -199,10 +199,13 @@ final class ProperGadtConstraint private(
         val tvar1 = stripInternalTypeVar(typeVarOfOrigName(name))
         val bounds = processBounds(bd)
 
+        // for any bound X >: L <: H
         {
-          bounds.lo.isRef(defn.NothingClass) || addLessBound(bounds.lo, tvar1)
+          // add X <: H
+          bounds.hi.isAny || addUpperBound(tvar1, bounds.hi)
         } && {
-          bounds.hi.isAny || addLessBound(tvar1, bounds.hi)
+          // add L <: X
+          bounds.lo.isRef(defn.NothingClass) || addUpperBound(bounds.lo, tvar1)
         }
       }
     } forall identity
@@ -268,7 +271,9 @@ final class ProperGadtConstraint private(
     }
 
     val symTvar: TypeVar = stripInternalTypeVar(tvarOrError(m)(ident)) match {
-      case tv: TypeVar => tv
+      case tv: TypeVar =>
+        gadts.println(i"can not instantiate: $tv")
+        tv
       case inst =>
         gadts.println(i"instantiated: $ident -> $inst")
         return if (isUpper) isSub(inst, bound) else isSub(bound, inst)
@@ -296,9 +301,9 @@ final class ProperGadtConstraint private(
     }, gadts)
   }
 
-  override def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean = trace.force(i"addBound($sym, $bound, ${if isUpper then "upper" else "lower"})", gadts) {
+  override def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean = trace(i"addBound($sym, $bound, ${if isUpper then "upper" else "lower"})", gadts) {
     val res = _addBound(mapping)(sym, bound, isUpper)
-    println(debugBoundsDescription)
+    gadts.println(debugBoundsDescription)
     res
   }
 
@@ -445,7 +450,10 @@ final class ProperGadtConstraint private(
   override protected def constraint = myConstraint
   override protected def constraint_=(c: Constraint) = myConstraint = c
 
-  override protected def isSub(tp1: Type, tp2: Type)(using Context): Boolean = TypeComparer.isSubType(tp1, tp2)
+  override protected def isSub(tp1: Type, tp2: Type)(using Context): Boolean = {
+    gadts.println(i"isSub is called : $tp1 <: $tp2 ?")
+    TypeComparer.isSubType(tp1, tp2)
+  }
   override protected def isSame(tp1: Type, tp2: Type)(using Context): Boolean = TypeComparer.isSameType(tp1, tp2)
 
   override def nonParamBounds(param: TypeParamRef)(using Context): TypeBounds =

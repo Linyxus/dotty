@@ -268,14 +268,27 @@ class OrderingConstraint(val boundsMap: ParamBounds,
   }
 
   def add(poly: TypeLambda, tvars: List[TypeVar])(using Context): This = {
+    def showParam(constraint: Constraint): Unit = {
+      // poly.paramRefs foreach { param =>
+      //   print(i"$param : ${constraint.entry(param)} lower=${constraint.lower(param)} upper=${constraint.upper(param)} ; ")
+      // }
+      // println()
+    }
     assert(!contains(poly))
-    // println(i"*** constraint.add before : lowerMap = $lowerMap")
+    if tvars.length > 2 then {
+      // print("  constraint.add before :: ")
+      showParam(this)
+    }
     val nparams = poly.paramNames.length
     val entries1 = new Array[Type](nparams * 2)
     poly.paramInfos.copyToArray(entries1, 0)
     tvars.copyToArray(entries1, nparams)
-    // println(i"*** constraint.add after : lowerMap = $lowerMap")
-    newConstraint(boundsMap.updated(poly, entries1), lowerMap, upperMap).init(poly)
+    val res = newConstraint(boundsMap.updated(poly, entries1), lowerMap, upperMap).init(poly)
+    if tvars.length > 2 then {
+      // print("  constraint.add after :: ")
+      showParam(res)
+    }
+    res
   }
 
   /** Split dependent parameters off the bounds for parameters in `poly`.

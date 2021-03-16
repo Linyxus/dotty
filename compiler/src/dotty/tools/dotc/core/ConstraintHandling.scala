@@ -86,7 +86,7 @@ trait ConstraintHandling {
       false
     else
       val oldBounds @ TypeBounds(lo, hi) = constraint.nonParamBounds(param)
-      val equalBounds = (if isUpper then lo else hi) eq bound
+      val equalBounds = true && { (if isUpper then lo else hi) eq bound }
       if equalBounds
         && !bound.existsPart(bp => bp.isInstanceOf[WildcardType] || (bp eq param))
       then
@@ -94,6 +94,7 @@ trait ConstraintHandling {
         // so we can remove `param` from the constraint.
         // (Handling wildcards requires choosing a bound, but we don't know which
         // bound to choose here, this is handled in `ConstraintHandling#approximation`)
+        // println(s"$param ->> equal bounds $bound")
         constraint = constraint.replace(param, bound)
         true
       else
@@ -489,12 +490,31 @@ trait ConstraintHandling {
    */
   def addToConstraint(tl: TypeLambda, tvars: List[TypeVar])(using Context): Boolean =
     checkPropagated(i"initialized $tl") {
+      def showParam: Unit = {
+        // tl.paramRefs foreach { param =>
+        //   print(i"\n  $param : ${constraint.entry(param)} lower=${constraint.lower(param)} upper=${constraint.upper(param)}")
+        // }
+        // println()
+      }
+
       constr.println(i"*** addToConstraint: tl = $tl, tvars = $tvars")
       constr.println(i"*** addToConstraint: before constraint = $constraint")
+      if tvars.length > 2 then {
+        // print("before :: ")
+        showParam
+      }
       constraint = constraint.add(tl, tvars)
+      if tvars.length > 2 then {
+        // print("after :: ")
+        showParam
+      }
       constr.println(i"*** addToConstriant: after constraint = $constraint")
       val res = tl.paramRefs.forall { param =>
-        constraint.entry(param) match {
+        if tvars.length > 2 then {
+          // print(i"BEFORE handling $param :: ")
+          showParam
+        }
+        val res = constraint.entry(param) match {
           case bounds: TypeBounds =>
             val lower = constraint.lower(param)
             constr.println(i"*** addToConstriant: $param lower = $lower")
@@ -503,14 +523,32 @@ trait ConstraintHandling {
             if lower.nonEmpty && !bounds.lo.isRef(defn.NothingClass)
                || upper.nonEmpty && !bounds.hi.isAny
             then constr.println(i"INIT*** $tl")
-            lower.forall(addOneBound(_, bounds.hi, isUpper = true)) &&
-              upper.forall(addOneBound(_, bounds.lo, isUpper = false))
+            lower.forall(addOneBound(_, bounds.hi, isUpper = true)) && {
+              true
+            } &&
+              upper.forall(addOneBound(_, bounds.lo, isUpper = false)) && {
+                true
+              }
           case x =>
             constr.println(i"*** addToConstraint: $param solved = $x")
+            val lower = constraint.lower(param)
+            val upper = constraint.upper(param)
+            lower.forall(addOneBound(_, x, isUpper = true)) && {
+              true
+            } &&
+              upper.forall(addOneBound(_, x, isUpper = false)) && {
+                true
+              }
             // Happens if param was already solved while processing earlier params of the same TypeLambda.
             // See #4720.
-            true
+            // true
         }
+        if tvars.length > 2 then {
+          // print(i"AFTER handling $param :: ")
+          showParam
+        }
+
+        res
       }
       constr.println(i"*** addToConstriant: AGAIN after constraint = $constraint")
       // tvars foreach { tvar =>
