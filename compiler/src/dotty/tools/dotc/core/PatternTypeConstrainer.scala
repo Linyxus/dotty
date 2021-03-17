@@ -103,33 +103,6 @@ trait PatternTypeConstrainer { self: TypeComparer =>
       }
     }
 
-    def processRefinement(tp: Type, isScrut: Boolean): Type = tp match {
-      case tp @ RefinedType(parent, name, bounds) =>
-        /** Record type bounds in the refinement */
-        if isScrut then
-          ctx.gadt.addScrutStructBound(name, bounds)
-        else
-          ctx.gadt.addPatStructBound(name, bounds)
-
-        // println(tp)
-        // println(parent)
-        // println(s"refined type!")
-        val freshName = SkolemName.fresh(name.asTypeName)
-        println(s"name = $name, freshed $freshName")
-        println(s"bounds = $bounds")
-        bounds match {
-          // recursive type member is also a named type
-          case bs: TypeBounds => println(bs.hi.asInstanceOf[NamedType].name)
-        }
-        // we should build a poly type with the type members
-
-        processRefinement(tp.parent, isScrut)
-      case tp: RecType =>
-        // println(s"rec type!")
-        processRefinement(tp.parent, isScrut)
-      case tp => tp
-    }
-
     def stripRefinement(tp: Type): Type = tp match {
       case tp: RefinedOrRecType => stripRefinement(tp.parent)
       case tp => tp
@@ -206,42 +179,9 @@ trait PatternTypeConstrainer { self: TypeComparer =>
           else
             Some(Nil)
 
-        // val allRef = patRef ++ scrutRef
-        // val allNames = allRef map { _._1 }
-        // val uniqueNames = allNames.reverse.distinct.reverse
-
-        // val allBounds = uniqueNames map { name =>
-        //   name -> {
-        //     allRef filter {_._1 == name} map {_._2}
-        //   }
-        // }
-
-        // for
-        //   (name, bounds) <- allBounds
-        //   bd <- bounds
-        // do {
-        //   println(i"$name ~ $bd")
-        // }
-
-        // constrainTypeMembers(allBounds) match {
-        //   case None => false
-        //   case Some(tvars) => true
-        // }
-
-
         { for
             patRes <- constrainTypeMembers(patRef)
-            _ <- {
-              println("##### after constraining pattern type members:")
-              println(ctx.gadt.debugBoundsDescription)
-              Some(())
-            }
             scrutRes <- constrainTypeMembers(scrutRef)
-            _ <- {
-              println("##### after constraining scrutinee type members:")
-              println(ctx.gadt.debugBoundsDescription)
-              Some(())
-            }
           yield {
             val names = (patRef ++ scrutRef) map (_._1)
             val res = (patRes ++ scrutRes) zip names
@@ -264,10 +204,9 @@ trait PatternTypeConstrainer { self: TypeComparer =>
     val patRef = collectRefinement(pat)
     val scrutRef = collectRefinement(scrut)
 
-    // only constrain type members when both are refined
-    if patRef.nonEmpty || scrutRef.nonEmpty then {
+    // constrain type members when either is refined
+    if patRef.nonEmpty || scrutRef.nonEmpty then
       constrainTypeMembers(patRef, scrutRef)
-    }
 
     scrut.dealias match {
       case OrType(scrut1, scrut2) =>

@@ -170,19 +170,11 @@ final class ProperGadtConstraint private(
       tv
     }
 
-    // println(s"tvars = $tvars")
-
     // The replaced symbols are picked up here.
     val res = {
       addToConstraint(poly1, tvars)
         .showing(i"added to constraint: [$poly1] $members%, %\n$debugBoundsDescription", gadts)
     }
-    // def addBoundOk = names lazyZip { members map (_._2) } flatMap { case (name, tbs) =>
-    //   tbs map { tb =>
-    //     val tb1 = processBounds(poly1, tb)
-    //     addBoundForName(name, tb1.lo, isUpper = false) && addBoundForName(name, tb1.hi, isUpper = true)
-    //   }
-    // }
 
     if res then Some(names) else None
   }
@@ -277,8 +269,6 @@ final class ProperGadtConstraint private(
 
   private def addBoundForName(name: Name, bound: Type, isUpper: Boolean)(using Context): Boolean = _addBound(nameMapping)(name, bound, isUpper)
 
-  def addBoundForTypeVar(tvar: TypeVar, bound: Type, isUpper: Boolean)(using Context): Boolean = _addBound(identity[TypeVar])(tvar, bound, isUpper)
-
   override def equalizeNames(name1: Name, name2: Name)(using Context): Boolean = {
     @annotation.tailrec def stripInternalTypeVar(tp: Type): Type = tp match {
       case tv: TypeVar =>
@@ -289,63 +279,22 @@ final class ProperGadtConstraint private(
 
     val tvar1 = tvarOrError(nameMapping)(name1)
     val tvar2 = tvarOrError(nameMapping)(name2)
-    gadts.println(i"equalize typevar of names: $tvar1 === $tvar2")
 
     val stv1 = stripInternalTypeVar(tvar1)
     val stv2 = stripInternalTypeVar(tvar2)
 
     (stripInternalTypeVar(stv1), stripInternalTypeVar(stv2)) match {
       case (stv1 : TypeVar, stv2 : TypeVar) =>
-        gadts.println(i"both uninstanstiated : $stv1 =:= $stv2")
         addBoundForName(name1, stv2, isUpper = false) && addBoundForName(name2, stv1, isUpper = false)
       case (inst1, _ : TypeVar) =>
-        gadts.println(i"name1 instanstiated : $tvar1 ~> $inst1")
         addBoundForName(name2, inst1, isUpper = false) && addBoundForName(name2, inst1, isUpper = true)
       case (_ : TypeVar, inst2) =>
-        gadts.println(i"name2 instanstiated : $tvar2 ~> $inst2")
         addBoundForName(name1, inst2, isUpper = false) && addBoundForName(name1, inst2, isUpper = true)
       case (inst1, inst2) =>
-        gadts.println(i"both instanstiated : $tvar1 ~> $inst1 , $tvar2 ~> $inst2")
         isSame(inst1, inst2)
     }
   }
 
-  // override def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean = trace(i"addBound($sym, $bound, ${if isUpper then "upper" else "lower"})", gadts) {
-  //   @annotation.tailrec def stripInternalTypeVar(tp: Type): Type = tp match {
-  //     case tv: TypeVar =>
-  //       val inst = constraint.instType(tv)
-  //       if (inst.exists) stripInternalTypeVar(inst) else tv
-  //     case _ => tp
-  //   }
-
-  //   val symTvar: TypeVar = stripInternalTypeVar(tvarOrError(mapping)(sym)) match {
-  //     case tv: TypeVar => tv
-  //     case inst =>
-  //       gadts.println(i"instantiated: $sym -> $inst")
-  //       return if (isUpper) isSub(inst, bound) else isSub(bound, inst)
-  //   }
-
-  //   val internalizedBound = bound match {
-  //     case nt: NamedType =>
-  //       val ntTvar = mapping(nt.symbol)
-  //       if (ntTvar ne null) stripInternalTypeVar(ntTvar) else bound
-  //     case _ => bound
-  //   }
-  //   (
-  //     internalizedBound match {
-  //       case boundTvar: TypeVar =>
-  //         if (boundTvar eq symTvar) true
-  //         else if (isUpper) addLess(symTvar.origin, boundTvar.origin)
-  //         else addLess(boundTvar.origin, symTvar.origin)
-  //       case bound =>
-  //         addBoundTransitively(symTvar.origin, bound, isUpper)
-  //     }
-  //   ).showing({
-  //     val descr = if (isUpper) "upper" else "lower"
-  //     val op = if (isUpper) "<:" else ">:"
-  //     i"adding $descr bound $sym $op $bound = $result"
-  //   }, gadts)
-  // }
 
   override def isLess(sym1: Symbol, sym2: Symbol)(using Context): Boolean = trace(i"isLess($sym1, $sym2)", gadtsConstr) {
     constraint.isLess(tvarOrError(mapping)(sym1).origin, tvarOrError(mapping)(sym2).origin)
