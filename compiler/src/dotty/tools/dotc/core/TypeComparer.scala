@@ -208,6 +208,9 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
    */
   protected def recur(tp1: Type, tp2: Type): Boolean = trace(s"isSubType ${traceInfo(tp1, tp2)} ${approx.show}", subtyping) {
 
+    if i"$tp2" == "s[X]" then println(i"isSubType(tp1 = $tp1, tp2 = $tp2)")
+    if i"$tp2" == "s[X]" then println(s"isSubType(tp1 = $tp1, tp2 = $tp2)")
+
     def monitoredIsSubType = {
       if (pendingSubTypes == null) {
         pendingSubTypes = util.HashSet[(Type, Type)]()
@@ -553,6 +556,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
 
     def thirdTry: Boolean = tp2 match {
       case tp2 @ AppliedType(tycon2, args2) =>
+        if i"$tp2" == "s[X]" then println(i"==> isSubType :: enter appliedType case : tycon2 = $tycon2 args2 = $args2")
         compareAppliedType2(tp2, tycon2, args2)
       case tp2: NamedType =>
         thirdTryNamed(tp2)
@@ -967,6 +971,9 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
     /** Subtype test for the hk application `tp2 = tycon2[args2]`.
      */
     def compareAppliedType2(tp2: AppliedType, tycon2: Type, args2: List[Type]): Boolean = {
+      if i"$tp2" == "s[X]" then println(i" ==> compareAppliedType2(tp2 = $tp2, tycon2 = $tycon2, args2 = $args2)")
+      if i"$tp2" == "s[X]" then println(s" ::: compareAppliedType2(tp2 = $tp2, tycon2 = $tycon2, args2 = $args2)")
+
       val tparams = tycon2.typeParams
       if (tparams.isEmpty) return false // can happen for ill-typed programs, e.g. neg/tcpoly_overloaded.scala
 
@@ -1136,12 +1143,17 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
         else
           fallback(tycon2bounds.lo)
 
+      // compareApplied definition goes here
       tycon2 match {
         case param2: TypeParamRef =>
+          if i"$tp2" == "s[X]" then println(i"  ==> compareAppliedType :: enter param2 : TypeParamRef case ")
           isMatchingApply(tp1) ||
           canConstrain(param2) && canInstantiate(param2) ||
           compareLower(bounds(param2), tyconIsTypeRef = false)
         case tycon2: TypeRef =>
+          if i"$tp2" == "s[X]" then println(i"  ==> compareAppliedType :: enter tycon2 : TypeRef case ")
+          if i"$tp2" == "s[X]" then println(i"  ==> compareAppliedType :: tycon2.info = ${tycon2.info}")
+          if i"$tp2" == "s[X]" then println(s"  ::: compareAppliedType :: tycon2.info = ${tycon2.info}")
           isMatchingApply(tp1) ||
           defn.isCompiletimeAppliedType(tycon2.symbol) && compareCompiletimeAppliedType(tp2, tp1, fromBelow = true) || {
             tycon2.info match {
