@@ -114,7 +114,12 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
 
   private def isBottom(tp: Type) = tp.widen.isRef(NothingClass)
 
-  protected def gadtBounds(sym: Symbol)(using Context) = ctx.gadt.bounds(sym)
+  protected def gadtBounds(sym: Symbol)(using Context) = trace(i"gadtBounds of $sym", subtyping, show = true) {
+    ctx.gadt.bounds(sym)
+  }
+  protected def fullGadtBounds(sym: Symbol)(using Context) = trace.force(i"fullGadtBounds of $sym", subtyping, show = true) {
+    ctx.gadt.fullBounds(sym)
+  }
   protected def gadtAddLowerBound(sym: Symbol, b: Type): Boolean = ctx.gadt.addBound(sym, b, isUpper = false)
   protected def gadtAddUpperBound(sym: Symbol, b: Type): Boolean = ctx.gadt.addBound(sym, b, isUpper = true)
 
@@ -187,6 +192,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
     }
   }
 
+
   def isSubType(tp1: Type, tp2: Type): Boolean = isSubType(tp1, tp2, ApproxState.Fresh)
 
   override protected def isSub(tp1: Type, tp2: Type)(using Context): Boolean = isSubType(tp1, tp2)
@@ -206,10 +212,16 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
    *  code would have two extra parameters for each of the many calls that go from
    *  one sub-part of isSubType to another.
    */
-  protected def recur(tp1: Type, tp2: Type): Boolean = trace(s"isSubType ${traceInfo(tp1, tp2)} ${approx.show}", subtyping) {
-
-    if i"$tp2" == "s[X]" then println(i"isSubType(tp1 = $tp1, tp2 = $tp2)")
-    if i"$tp2" == "s[X]" then println(s"isSubType(tp1 = $tp1, tp2 = $tp2)")
+  protected def recur(tp1: Type, tp2: Type): Boolean = trace.force(s"isSubType ${traceInfo(tp1, tp2)} ${approx.show}", subtyping) {
+    /** Conditional printing function for debugging
+      */
+    def debugCond: Boolean =
+      i"$tp2" startsWith "G["
+      true
+    end debugCond
+    def debugPrintln(s: String): Unit =
+      if debugCond then
+        println(s)
 
     def monitoredIsSubType = {
       if (pendingSubTypes == null) {
@@ -556,7 +568,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
 
     def thirdTry: Boolean = tp2 match {
       case tp2 @ AppliedType(tycon2, args2) =>
-        if i"$tp2" == "s[X]" then println(i"==> isSubType :: enter appliedType case : tycon2 = $tycon2 args2 = $args2")
+        debugPrintln(i"isSubType :: enter appliedType case : tycon2 = $tycon2 args2 = $args2")
         compareAppliedType2(tp2, tycon2, args2)
       case tp2: NamedType =>
         thirdTryNamed(tp2)
@@ -970,10 +982,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
 
     /** Subtype test for the hk application `tp2 = tycon2[args2]`.
      */
-    def compareAppliedType2(tp2: AppliedType, tycon2: Type, args2: List[Type]): Boolean = {
-      if i"$tp2" == "s[X]" then println(i" ==> compareAppliedType2(tp2 = $tp2, tycon2 = $tycon2, args2 = $args2)")
-      if i"$tp2" == "s[X]" then println(s" ::: compareAppliedType2(tp2 = $tp2, tycon2 = $tycon2, args2 = $args2)")
-
+    def compareAppliedType2(tp2: AppliedType, tycon2: Type, args2: List[Type]): Boolean = trace.force(i"compareAppliedType2 $tp1 <:< $tp2", subtyping) {
       val tparams = tycon2.typeParams
       if (tparams.isEmpty) return false // can happen for ill-typed programs, e.g. neg/tcpoly_overloaded.scala
 
@@ -1040,10 +1049,11 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
 
                   var touchedGADTs = false
                   var gadtIsInstantiated = false
-                  def byGadtBounds(sym: Symbol, tp: Type, fromAbove: Boolean): Boolean = {
+                  def byGadtBounds(sym: Symbol, tp: Type, fromAbove: Boolean): Boolean = trace.force(i"byGadtBounds $sym and $tp, fromAbove $fromAbove", subtyping) {
                     touchedGADTs = true
-                    val b = gadtBounds(sym)
+                    val b = fullGadtBounds(sym)
                     def boundsDescr = if b == null then "null" else b.show
+                    // println(i"gadt status: ${ctx.gadt.debugBoundsDescription}\ngadtBounds of $sym = $boundsDescr")
                     b != null && inFrozenGadt {
                       if fromAbove then isSubType(b.hi, tp) else isSubType(tp, b.lo)
                     } && {
@@ -1136,28 +1146,34 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
        *    tp1 <:< tp2    using fourthTry (this might instantiate params in tp1)
        *    tp1 <:< app2   using isSubType (this might instantiate params in tp2)
        */
-      def compareLower(tycon2bounds: TypeBounds, tyconIsTypeRef: Boolean): Boolean =
+      def compareLower(tycon2bounds: TypeBounds, tyconIsTypeRef: Boolean): Boolean = trace(i"compareLower($tycon2bounds, $tyconIsTypeRef)", subtyping, show = true) {
         if ((tycon2bounds.lo `eq` tycon2bounds.hi) && !tycon2bounds.isInstanceOf[MatchAlias])
           if (tyconIsTypeRef) recur(tp1, tp2.superType)
           else isSubApproxHi(tp1, tycon2bounds.lo.applyIfParameterized(args2))
-        else
-          fallback(tycon2bounds.lo)
+          else
+            debugPrintln(i"compareLower : fallback case")
+            fallback(tycon2bounds.lo)
+      }
 
       // compareApplied definition goes here
       tycon2 match {
         case param2: TypeParamRef =>
-          if i"$tp2" == "s[X]" then println(i"  ==> compareAppliedType :: enter param2 : TypeParamRef case ")
+          debugPrintln(i"compareAppliedType :: enter param2 : TypeParamRef case ")
           isMatchingApply(tp1) ||
           canConstrain(param2) && canInstantiate(param2) ||
           compareLower(bounds(param2), tyconIsTypeRef = false)
         case tycon2: TypeRef =>
-          if i"$tp2" == "s[X]" then println(i"  ==> compareAppliedType :: enter tycon2 : TypeRef case ")
-          if i"$tp2" == "s[X]" then println(i"  ==> compareAppliedType :: tycon2.info = ${tycon2.info}")
-          if i"$tp2" == "s[X]" then println(s"  ::: compareAppliedType :: tycon2.info = ${tycon2.info}")
-          isMatchingApply(tp1) ||
+          debugPrintln(i"compareAppliedType :: enter tycon2 : TypeRef case ")
+          debugPrintln(i"compareAppliedType :: tycon2.info = ${tycon2.info}")
+          debugPrintln(s"compareAppliedType :: tycon2.info ~ ${tycon2.info}")
+          {
+            trace(s"isMatchingApply $tp1 and $tycon2", subtyping) { isMatchingApply(tp1) }
+          } ||
           defn.isCompiletimeAppliedType(tycon2.symbol) && compareCompiletimeAppliedType(tp2, tp1, fromBelow = true) || {
+            debugPrintln(s"compareAppliedType :: enters third or-case")
             tycon2.info match {
               case info2: TypeBounds =>
+                debugPrintln(s"compareAppliedType :: enters info2 : TypeBounds case")
                 compareLower(info2, tyconIsTypeRef = true)
               case info2: ClassInfo =>
                 tycon2.name.startsWith("Tuple") &&

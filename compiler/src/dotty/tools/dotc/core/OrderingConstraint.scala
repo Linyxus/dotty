@@ -177,6 +177,7 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
   }
 
   def minUpper(param: TypeParamRef): List[TypeParamRef] = {
+    println(s"minUpper of $param")
     val all = upper(param)
     all.filterNot(p => all.exists(isLess(_, p)))
   }

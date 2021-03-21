@@ -69,14 +69,21 @@ trait ConstraintHandling {
 
   def fullUpperBound(param: TypeParamRef)(using Context): Type =
     constraint.minUpper(param).foldLeft(nonParamBounds(param).hi)(_ & _)
+  end fullUpperBound
 
   /** Full bounds of `param`, including other lower/upper params.
     *
     * Note that underlying operations perform subtype checks - for this reason, recursing on `fullBounds`
     * of some param when comparing types might lead to infinite recursion. Consider `bounds` instead.
     */
-  def fullBounds(param: TypeParamRef)(using Context): TypeBounds =
-    nonParamBounds(param).derivedTypeBounds(fullLowerBound(param), fullUpperBound(param))
+  def fullBounds(param: TypeParamRef)(using Context): TypeBounds = trace.force(i"fullBounds of $param", constr, show = true) {
+    trace.force(i"nonParamBounds of $param", constr, show = true) {
+      nonParamBounds(param)
+    }.derivedTypeBounds(
+      trace.force(i"fullLowerBound of $param", constr, show = true) { fullLowerBound(param) },
+      trace.force(i"fullUpperBound of $param", constr, show = true) { fullUpperBound(param) }
+    )
+  }
 
   protected def addOneBound(param: TypeParamRef, bound: Type, isUpper: Boolean)(using Context): Boolean =
     if !constraint.contains(param) then true
@@ -489,10 +496,10 @@ trait ConstraintHandling {
    */
   def addToConstraint(tl: TypeLambda, tvars: List[TypeVar])(using Context): Boolean =
     checkPropagated(i"initialized $tl") {
-      constr.println(i"tl = $tl, tvars = $tvars")
-      constr.println(i"before constraint = $constraint")
+      // constr.println(i"tl = $tl, tvars = $tvars")
+      // constr.println(i"before constraint = $constraint")
       constraint = constraint.add(tl, tvars)
-      constr.println(i"after constraint = $constraint")
+      // constr.println(i"after constraint = $constraint")
       tl.paramRefs.forall { param =>
         val lower = constraint.lower(param)
         val upper = constraint.upper(param)
