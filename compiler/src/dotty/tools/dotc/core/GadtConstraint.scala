@@ -384,13 +384,14 @@ final class ProperGadtConstraint private(
       (t, u) => t | externalize(u)
     }
 
-  override def fullUpperBound(param: TypeParamRef)(using Context): Type =
+  override def fullUpperBound(param: TypeParamRef)(using Context): Type = trace.force("fullUpperBound inner", gadts, show = true) {
     trace.force(i"constraint.minUpper of $param", gadts, show = true) { constraint.minUpper(param) }.foldLeft(trace.force(i"nonParamBounds.hi of $param", gadts, show = true) { nonParamBounds(param).hi }) { (t, u) =>
       val eu = externalize(u)
       // Any as the upper bound means "no bound", but if F is higher-kinded,
       // Any & F = F[_]; this is wrong for us so we need to short-circuit
       if t.isAny then eu else t & eu
     }
+  }
 
   // ---- Private ----------------------------------------------------------
 
