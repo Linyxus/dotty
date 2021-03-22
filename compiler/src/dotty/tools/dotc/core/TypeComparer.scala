@@ -120,6 +120,8 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
   protected def fullGadtBounds(sym: Symbol)(using Context) = trace.force(i"fullGadtBounds of $sym", subtyping, show = true) {
     ctx.gadt.fullBounds(sym)
   }
+  protected def simpleFullGadtBounds(sym: Symbol)(using Context) =
+    ctx.gadt.simpleFullBounds(sym)
   protected def gadtAddLowerBound(sym: Symbol, b: Type): Boolean = ctx.gadt.addBound(sym, b, isUpper = false)
   protected def gadtAddUpperBound(sym: Symbol, b: Type): Boolean = ctx.gadt.addBound(sym, b, isUpper = true)
 

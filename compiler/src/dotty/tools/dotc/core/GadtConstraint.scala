@@ -26,6 +26,7 @@ sealed abstract class GadtConstraint extends Showable {
    *       Using this in isSubType can lead to infinite recursion. Consider `bounds` instead.
    */
   def fullBounds(sym: Symbol)(using Context): TypeBounds
+  def simpleFullBounds(sym: Symbol)(using Context): TypeBounds
   def fullBoundsForName(name: Name)(using Context): TypeBounds
 
   /** Is `sym1` ordered to be less than `sym2`? */
@@ -308,6 +309,14 @@ final class ProperGadtConstraint private(
           // .ensuring(containsNoInternalTypes(_))
     }
 
+  override def simpleFullBounds(sym: Symbol)(using Context): TypeBounds =
+    mapping(sym) match {
+      case null => null
+      case tv =>
+        simpleFullBounds(tv.origin)
+        // .ensuring(containsNoInternalTypes(_))
+    }
+
   override def fullBoundsForName(name: Name)(using Context): TypeBounds =
     nameMapping(name) match {
       case null => null
@@ -392,6 +401,18 @@ final class ProperGadtConstraint private(
       if t.isAny then eu else t & eu
     }
 
+  override def simpleFullLowerBound(param: TypeParamRef)(using Context): Type =
+    constraint.minLower(param).foldLeft(nonParamBounds(param).lo) { (t, u) =>
+      OrType(t, externalize(u), soft = false)
+    }
+
+  override def simpleFullUpperBound(param: TypeParamRef)(using Context): Type =
+    constraint.minUpper(param).foldLeft(nonParamBounds(param).hi) { (t, u) =>
+      val eu = externalize(u)
+
+      if t.isAny then eu else AndType(t, eu)
+    }
+
   // ---- Private ----------------------------------------------------------
 
   private def externalize(param: TypeParamRef)(using Context): Type =
@@ -455,6 +476,7 @@ final class ProperGadtConstraint private(
 @sharable object EmptyGadtConstraint extends GadtConstraint {
   override def bounds(sym: Symbol)(using Context): TypeBounds = null
   override def fullBounds(sym: Symbol)(using Context): TypeBounds = null
+  override def simpleFullBounds(sym: Symbol)(using Context): TypeBounds = null
   override def fullBoundsForName(name: Name)(using Context): TypeBounds = null
 
   override def isLess(sym1: Symbol, sym2: Symbol)(using Context): Boolean = unsupported("EmptyGadtConstraint.isLess")

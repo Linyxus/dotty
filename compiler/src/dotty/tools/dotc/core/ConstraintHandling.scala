@@ -69,7 +69,12 @@ trait ConstraintHandling {
 
   def fullUpperBound(param: TypeParamRef)(using Context): Type =
     constraint.minUpper(param).foldLeft(nonParamBounds(param).hi)(_ & _)
-  end fullUpperBound
+
+  def simpleFullLowerBound(param: TypeParamRef)(using Context): Type =
+    constraint.minLower(param).foldLeft(nonParamBounds(param).lo)(_ | _)
+
+  def simpleFullUpperBound(param: TypeParamRef)(using Context): Type =
+    constraint.minUpper(param).foldLeft(nonParamBounds(param).hi)(_ & _)
 
   /** Full bounds of `param`, including other lower/upper params.
     *
@@ -84,6 +89,9 @@ trait ConstraintHandling {
       trace.force(i"fullUpperBound of $param", constr, show = true) { fullUpperBound(param) }
     )
   }
+
+  def simpleFullBounds(param: TypeParamRef)(using Context): TypeBounds =
+      nonParamBounds(param).derivedTypeBounds(simpleFullLowerBound(param), simpleFullUpperBound(param))
 
   protected def addOneBound(param: TypeParamRef, bound: Type, isUpper: Boolean)(using Context): Boolean =
     if !constraint.contains(param) then true
