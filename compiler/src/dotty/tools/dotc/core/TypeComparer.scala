@@ -120,8 +120,9 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
   protected def fullGadtBounds(sym: Symbol)(using Context) = trace.force(i"fullGadtBounds of $sym", subtyping, show = true) {
     ctx.gadt.fullBounds(sym)
   }
-  protected def simpleFullGadtBounds(sym: Symbol)(using Context) =
+  protected def simpleFullGadtBounds(sym: Symbol)(using Context) = trace.force(i"simpleFullGadtBounds of $sym", subtyping, show = true) {
     ctx.gadt.simpleFullBounds(sym)
+  }
   protected def gadtAddLowerBound(sym: Symbol, b: Type): Boolean = ctx.gadt.addBound(sym, b, isUpper = false)
   protected def gadtAddUpperBound(sym: Symbol, b: Type): Boolean = ctx.gadt.addBound(sym, b, isUpper = true)
 
@@ -1053,7 +1054,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
                   var gadtIsInstantiated = false
                   def byGadtBounds(sym: Symbol, tp: Type, fromAbove: Boolean): Boolean = trace.force(i"byGadtBounds $sym and $tp, fromAbove $fromAbove", subtyping) {
                     touchedGADTs = true
-                    val b = fullGadtBounds(sym)
+                    val b = simpleFullGadtBounds(sym)
                     def boundsDescr = if b == null then "null" else b.show
                     // println(i"gadt status: ${ctx.gadt.debugBoundsDescription}\ngadtBounds of $sym = $boundsDescr")
                     b != null && inFrozenGadt {
