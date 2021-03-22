@@ -1097,7 +1097,9 @@ object Types {
 
     def & (that: Type)(using Context): Type = {
       record("&")
-      TypeComparer.glb(this, that)
+      trace.force(i"TypeComparer.glb($this, $that)", typr) {
+        TypeComparer.glb(this, that)
+      }
     }
 
     /** Safer version of `&`.
