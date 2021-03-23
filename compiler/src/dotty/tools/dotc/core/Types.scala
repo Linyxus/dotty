@@ -635,6 +635,7 @@ object Types {
         case tp: ClassInfo => tp.appliedRef
         case _ => widenIfUnstable
       }
+      if i"$name" == "X" then println(s"memberBasedonFlags : name = $name, pre = $pre")
       findMember(name, pre, required, excluded)
     }
 
@@ -737,37 +738,43 @@ object Types {
             if (!rt.openedTwice) rt.opened = false
         }
 
-      def goRefined(tp: RefinedType) = {
-        val pdenot = go(tp.parent)
-        val pinfo = pdenot.info
-        val rinfo = tp.refinedInfo
-        if (name.isTypeName && !pinfo.isInstanceOf[ClassInfo]) { // simplified case that runs more efficiently
-          val jointInfo =
-            if rinfo.isInstanceOf[TypeAlias] && !ctx.mode.is(Mode.CheckBounds) then
-              // In normal situations, the only way to "improve" on rinfo is to return an empty type bounds
-              // So, we do not lose anything essential in "widening" to rinfo.
-              // We need to compute the precise info only when checking for empty bounds
-              // which is communicated by the CheckBounds mode.
-              rinfo
-            else if ctx.base.pendingMemberSearches.contains(name) then
-              pinfo safe_& rinfo
-            else
-              pinfo recoverable_& rinfo
-          pdenot.asSingleDenotation.derivedSingleDenotation(pdenot.symbol, jointInfo)
+      def goRefined(tp: RefinedType): Denotation =
+        val res = {
+          val pdenot = go(tp.parent)
+          val pinfo = pdenot.info
+          val rinfo = tp.refinedInfo
+          if (name.isTypeName && !pinfo.isInstanceOf[ClassInfo]) { // simplified case that runs more efficiently
+            val jointInfo =
+              if rinfo.isInstanceOf[TypeAlias] && !ctx.mode.is(Mode.CheckBounds) then
+                // In normal situations, the only way to "improve" on rinfo is to return an empty type bounds
+                // So, we do not lose anything essential in "widening" to rinfo.
+                // We need to compute the precise info only when checking for empty bounds
+                // which is communicated by the CheckBounds mode.
+                rinfo
+              else if ctx.base.pendingMemberSearches.contains(name) then
+                pinfo safe_& rinfo
+              else
+                pinfo recoverable_& rinfo
+            pdenot.asSingleDenotation.derivedSingleDenotation(pdenot.symbol, jointInfo)
+          }
+          else
+            val joint = pdenot.meet(
+              new JointRefDenotation(NoSymbol, rinfo, Period.allInRun(ctx.runId), pre),
+              pre,
+              safeIntersection = ctx.base.pendingMemberSearches.contains(name))
+            joint match
+              case joint: SingleDenotation
+              if rinfo.isInstanceOf[MethodOrPoly] && rinfo <:< joint.info =>
+                // use `rinfo` to keep the right parameter names for named args. See i8516.scala.
+                joint.derivedSingleDenotation(joint.symbol, rinfo)
+              case _ =>
+                joint
         }
-        else
-          val joint = pdenot.meet(
-            new JointRefDenotation(NoSymbol, rinfo, Period.allInRun(ctx.runId), pre),
-            pre,
-            safeIntersection = ctx.base.pendingMemberSearches.contains(name))
-          joint match
-            case joint: SingleDenotation
-            if rinfo.isInstanceOf[MethodOrPoly] && rinfo <:< joint.info =>
-              // use `rinfo` to keep the right parameter names for named args. See i8516.scala.
-              joint.derivedSingleDenotation(joint.symbol, rinfo)
-            case _ =>
-              joint
-      }
+
+        println(i"goRefined : res.info = ${res.info}")
+
+        res
+      end goRefined
 
       def goApplied(tp: AppliedType, tycon: HKTypeLambda) =
         go(tycon.resType).mapInfo(info =>
@@ -1089,8 +1096,9 @@ object Types {
     /** The basetype of this type with given class symbol, NoType if `base` is not a class. */
     final def baseType(base: Symbol)(using Context): Type = {
       record("baseType")
+      println(s"baseType($base) : base.denot = ${base.denot}")
       base.denot match {
-        case classd: ClassDenotation => classd.baseTypeOf(this)
+        case classd: ClassDenotation => trace.force(i"$classd.baseTypeOf($this)", typr) { classd.baseTypeOf(this) }
         case _ => NoType
       }
     }
@@ -2131,6 +2139,7 @@ object Types {
 
     private def computeDenot(using Context): Denotation = {
       util.Stats.record("NamedType.computeDenot")
+      println("computeDenot")
 
       def finish(d: Denotation) = {
         if (d.exists)
@@ -2145,6 +2154,8 @@ object Types {
 
       def fromDesignator = designator match {
         case name: Name =>
+          println("fromDesignator : name: Name")
+          println(i"fromDesignator : name = $name")
           val sym = lastSymbol
           val allowPrivate = sym == null || (sym == NoSymbol) || sym.lastKnownDenotation.flagsUNSAFE.is(Private)
           finish(memberDenot(name, allowPrivate))
@@ -2162,16 +2173,25 @@ object Types {
 
       lastDenotation match {
         case lastd0: SingleDenotation =>
+          println("computeDenot : SingleDenotation")
           val lastd = lastd0.skipRemoved
-          if (lastd.validFor.runId == ctx.runId && (checkedPeriod != Nowhere)) finish(lastd.current)
-          else lastd match {
-            case lastd: SymDenotation =>
-              if (stillValid(lastd) && (checkedPeriod != Nowhere)) finish(lastd.current)
-              else finish(memberDenot(lastd.initial.name, allowPrivate = false))
-            case _ =>
-              fromDesignator
-          }
-        case _ => fromDesignator
+          if (lastd.validFor.runId == ctx.runId && (checkedPeriod != Nowhere))
+            println("computeDenot : SingleDenotation if then")
+            finish(lastd.current)
+          else
+            println("computeDenot : SingleDenotation if else")
+            lastd match {
+              case lastd: SymDenotation =>
+                println("computeDenot : lastd: SymDenotation case")
+                if (stillValid(lastd) && (checkedPeriod != Nowhere)) finish(lastd.current)
+                else finish(memberDenot(lastd.initial.name, allowPrivate = false))
+              case _ =>
+                println("computeDenot : lastd _ case")
+                fromDesignator
+            }
+        case _ =>
+          println("computeDenot : fromDesignator")
+          fromDesignator
       }
     }
 
@@ -2190,7 +2210,7 @@ object Types {
         }
       else d
 
-    private def memberDenot(name: Name, allowPrivate: Boolean)(using Context): Denotation = {
+    private def memberDenot(name: Name, allowPrivate: Boolean)(using Context): Denotation = trace.force(i"memberDenot($name)", typr, show = true) {
       var d = memberDenot(prefix, name, allowPrivate)
       if (!d.exists && !allowPrivate && ctx.mode.is(Mode.Interactive))
         // In the IDE we might change a public symbol to private, and would still expect to find it.
@@ -2204,7 +2224,7 @@ object Types {
     }
 
     private def memberDenot(prefix: Type, name: Name, allowPrivate: Boolean)(using Context): Denotation =
-      if (allowPrivate) prefix.member(name) else prefix.nonPrivateMember(name)
+      trace.force(i"memberDenot($prefix, $name)", typr, show = true) { if (allowPrivate) prefix.member(name) else prefix.nonPrivateMember(name) }
 
     private def argDenot(param: TypeSymbol)(using Context): Denotation = {
       val cls = param.owner
@@ -2605,7 +2625,7 @@ object Types {
     override def designator: Designator = myDesignator
     override protected def designator_=(d: Designator): Unit = myDesignator = d
 
-    override def underlying(using Context): Type = info
+    override def underlying(using Context): Type = trace.force("underlying", typr, show = true) { info }
 
     override def translucentSuperType(using Context) = info match {
       case TypeAlias(aliased) => aliased

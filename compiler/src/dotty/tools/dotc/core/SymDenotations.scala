@@ -1971,6 +1971,8 @@ object SymDenotations {
 
     /** Compute tp.baseType(this) */
     final def baseTypeOf(tp: Type)(using Context): Type = {
+      println(s"baseTypeOf : tp = $tp")
+
       val btrCache = baseTypeCache
       def inCache(tp: Type) = tp match
         case tp: CachedType => btrCache.contains(tp)
@@ -1992,6 +1994,8 @@ object SymDenotations {
       }
 
       def recur(tp: Type): Type = try {
+        println(i"recur : tp = $tp")
+        println(s"recur : tp : $tp")
         tp match {
           case tp: CachedType =>
             val baseTp = btrCache.lookup(tp)
@@ -2007,6 +2011,8 @@ object SymDenotations {
 
         tp match {
           case tp @ TypeRef(prefix, _) =>
+            println("recur : enter tp @ TypeRef case")
+
             def foldGlb(bt: Type, ps: List[Type]): Type = ps match {
               case p :: ps1 => foldGlb(bt & recur(p), ps1)
               case _ => bt
@@ -2035,7 +2041,9 @@ object SymDenotations {
                   record(tp, baseTp)
                   baseTp
                 case _ =>
+                  println("computeTypeRef : case _ =>")
                   val superTp = tp.superType
+                  println(i"computeTypeRef : superTp = $superTp")
                   val baseTp = recur(superTp)
                   if (inCache(superTp))
                     record(tp, baseTp)
@@ -2066,8 +2074,10 @@ object SymDenotations {
             recur(TypeComparer.bounds(tp).hi)
 
           case tp: TypeProxy =>
+            println("baseTypeOf : enter tp: TypeProxy case")
             def computeTypeProxy = {
               val superTp = tp.superType
+              println(i"computeTypeProxy : superTp = $superTp")
               val baseTp = recur(superTp)
               tp match {
                 case tp: CachedType if baseTp.exists && inCache(superTp) =>
