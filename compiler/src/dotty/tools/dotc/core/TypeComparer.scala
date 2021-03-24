@@ -219,7 +219,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
     /** Conditional printing function for debugging
       */
     def debugCond: Boolean =
-      i"$tp1" startsWith "(a :"
+      (i"$tp1" startsWith "(a :") || (i"$tp1" startsWith "x.X")
     end debugCond
 
     def debugPrintln(s: String): Unit =
@@ -517,6 +517,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
       case info2: TypeBounds =>
         debugPrintln("thirdTryNamed : enters info2: TypeBounds case")
         def compareGADT: Boolean = {
+          println(s"thirdTryNamed : tp2.symbol = ${tp2.symbol}")
           val gbounds2 = gadtBounds(tp2.symbol)
           (gbounds2 != null) &&
             (isSubTypeWhenFrozen(tp1, gbounds2.lo) ||
