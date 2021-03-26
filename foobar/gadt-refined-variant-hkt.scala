@@ -18,10 +18,10 @@ object Test {
   }
 
   def bar[F[_], G[_], s[_]](
-    ksub: { type M >: KSUB.Refl[s] <: F KSUB G },
+    ksub: { type M <: F KSUB G },
   ) =
     ksub match {
-      case _ : { } =>
+      case _ : { type M = KSUB.Refl[s] } =>
         val fi : F[Int] = ???
         val si : s[Int] = fi  // error
         val gi : G[Int] = si  // error

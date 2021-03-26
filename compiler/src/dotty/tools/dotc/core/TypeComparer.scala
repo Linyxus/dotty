@@ -1002,7 +1002,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
 
     /** Subtype test for the hk application `tp2 = tycon2[args2]`.
      */
-    def compareAppliedType2(tp2: AppliedType, tycon2: Type, args2: List[Type]): Boolean = trace.force(i"compareAppliedType2 $tp1 <:< $tp2", subtyping) {
+    def compareAppliedType2(tp2: AppliedType, tycon2: Type, args2: List[Type]): Boolean = trace(i"compareAppliedType2 $tp1 <:< $tp2", subtyping) {
       val tparams = tycon2.typeParams
       if (tparams.isEmpty) return false // can happen for ill-typed programs, e.g. neg/tcpoly_overloaded.scala
 
@@ -1069,9 +1069,10 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
 
                   var touchedGADTs = false
                   var gadtIsInstantiated = false
-                  def byGadtBounds(sym: Symbol, tp: Type, fromAbove: Boolean): Boolean = trace.force(i"byGadtBounds $sym and $tp, fromAbove $fromAbove", subtyping) {
+                  def byGadtBounds(sym: Symbol, tp: Type, fromAbove: Boolean): Boolean = trace(i"byGadtBounds $sym and $tp, fromAbove $fromAbove", subtyping) {
                     touchedGADTs = true
-                    val b = fullGadtBounds(sym)
+                    // val b = fullGadtBounds(sym)
+                    val b = gadtBounds(sym)
                     def boundsDescr = if b == null then "null" else b.show
                     // println(i"gadt status: ${ctx.gadt.debugBoundsDescription}\ngadtBounds of $sym = $boundsDescr")
                     b != null && inFrozenGadt {
@@ -1082,10 +1083,16 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
                     }
                   }
 
+                  def byGadtOrdering: Boolean =
+                    ctx.gadt.contains(tycon1sym)
+                    && ctx.gadt.contains(tycon2sym)
+                    && ctx.gadt.isLess(tycon1sym, tycon2sym)
+
                   val res = (
                     tycon1sym == tycon2sym && isSubPrefix(tycon1.prefix, tycon2.prefix)
                     || byGadtBounds(tycon1sym, tycon2, fromAbove = true)
                     || byGadtBounds(tycon2sym, tycon1, fromAbove = false)
+                    || byGadtOrdering
                   ) && {
                     // There are two cases in which we can assume injectivity.
                     // First we check if either sym is a class.
