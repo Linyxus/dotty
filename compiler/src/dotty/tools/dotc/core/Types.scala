@@ -635,7 +635,7 @@ object Types {
         case tp: ClassInfo => tp.appliedRef
         case _ => widenIfUnstable
       }
-      if i"$name" == "X" then println(s"memberBasedonFlags : name = $name, pre = $pre")
+      // if i"$name" == "X" then println(s"memberBasedonFlags : name = $name, pre = $pre")
       findMember(name, pre, required, excluded)
     }
 
