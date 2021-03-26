@@ -81,12 +81,12 @@ trait ConstraintHandling {
     * Note that underlying operations perform subtype checks - for this reason, recursing on `fullBounds`
     * of some param when comparing types might lead to infinite recursion. Consider `bounds` instead.
     */
-  def fullBounds(param: TypeParamRef)(using Context): TypeBounds = trace.force(i"fullBounds of $param", constr, show = true) {
-    trace.force(i"nonParamBounds of $param", constr, show = true) {
+  def fullBounds(param: TypeParamRef)(using Context): TypeBounds = trace(i"fullBounds of $param", constr, show = true) {
+    trace(i"nonParamBounds of $param", constr, show = true) {
       nonParamBounds(param)
     }.derivedTypeBounds(
-      trace.force(i"fullLowerBound of $param", constr, show = true) { fullLowerBound(param) },
-      trace.force(i"fullUpperBound of $param", constr, show = true) { fullUpperBound(param) }
+      trace(i"fullLowerBound of $param", constr, show = true) { fullLowerBound(param) },
+      trace(i"fullUpperBound of $param", constr, show = true) { fullUpperBound(param) }
     )
   }
 

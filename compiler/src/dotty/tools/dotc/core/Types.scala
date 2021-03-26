@@ -771,7 +771,7 @@ object Types {
                 joint
         }
 
-        println(i"goRefined : res.info = ${res.info}")
+        // println(i"goRefined : res.info = ${res.info}")
 
         res
       end goRefined
@@ -1096,16 +1096,16 @@ object Types {
     /** The basetype of this type with given class symbol, NoType if `base` is not a class. */
     final def baseType(base: Symbol)(using Context): Type = {
       record("baseType")
-      println(s"baseType($base) : base.denot = ${base.denot}")
+      // println(s"baseType($base) : base.denot = ${base.denot}")
       base.denot match {
-        case classd: ClassDenotation => trace.force(i"$classd.baseTypeOf($this)", typr) { classd.baseTypeOf(this) }
+        case classd: ClassDenotation => trace(i"$classd.baseTypeOf($this)", typr) { classd.baseTypeOf(this) }
         case _ => NoType
       }
     }
 
     def & (that: Type)(using Context): Type = {
       record("&")
-      trace.force(i"TypeComparer.glb($this, $that)", typr) {
+      trace(i"TypeComparer.glb($this, $that)", typr) {
         TypeComparer.glb(this, that)
       }
     }
@@ -2139,7 +2139,7 @@ object Types {
 
     private def computeDenot(using Context): Denotation = {
       util.Stats.record("NamedType.computeDenot")
-      println("computeDenot")
+      // println("computeDenot")
 
       def finish(d: Denotation) = {
         if (d.exists)
@@ -2154,8 +2154,8 @@ object Types {
 
       def fromDesignator = designator match {
         case name: Name =>
-          println("fromDesignator : name: Name")
-          println(i"fromDesignator : name = $name")
+          // println("fromDesignator : name: Name")
+          // println(i"fromDesignator : name = $name")
           val sym = lastSymbol
           val allowPrivate = sym == null || (sym == NoSymbol) || sym.lastKnownDenotation.flagsUNSAFE.is(Private)
           finish(memberDenot(name, allowPrivate))
@@ -2173,24 +2173,24 @@ object Types {
 
       lastDenotation match {
         case lastd0: SingleDenotation =>
-          println("computeDenot : SingleDenotation")
+          // println("computeDenot : SingleDenotation")
           val lastd = lastd0.skipRemoved
           if (lastd.validFor.runId == ctx.runId && (checkedPeriod != Nowhere))
-            println("computeDenot : SingleDenotation if then")
+            // println("computeDenot : SingleDenotation if then")
             finish(lastd.current)
           else
-            println("computeDenot : SingleDenotation if else")
+            // println("computeDenot : SingleDenotation if else")
             lastd match {
               case lastd: SymDenotation =>
-                println("computeDenot : lastd: SymDenotation case")
+                // println("computeDenot : lastd: SymDenotation case")
                 if (stillValid(lastd) && (checkedPeriod != Nowhere)) finish(lastd.current)
                 else finish(memberDenot(lastd.initial.name, allowPrivate = false))
               case _ =>
-                println("computeDenot : lastd _ case")
+                // println("computeDenot : lastd _ case")
                 fromDesignator
             }
         case _ =>
-          println("computeDenot : fromDesignator")
+          // println("computeDenot : fromDesignator")
           fromDesignator
       }
     }
@@ -2210,7 +2210,7 @@ object Types {
         }
       else d
 
-    private def memberDenot(name: Name, allowPrivate: Boolean)(using Context): Denotation = trace.force(i"memberDenot($name)", typr, show = true) {
+    private def memberDenot(name: Name, allowPrivate: Boolean)(using Context): Denotation = trace(i"memberDenot($name)", typr, show = true) {
       var d = memberDenot(prefix, name, allowPrivate)
       if (!d.exists && !allowPrivate && ctx.mode.is(Mode.Interactive))
         // In the IDE we might change a public symbol to private, and would still expect to find it.
@@ -2224,7 +2224,7 @@ object Types {
     }
 
     private def memberDenot(prefix: Type, name: Name, allowPrivate: Boolean)(using Context): Denotation =
-      trace.force(i"memberDenot($prefix, $name)", typr, show = true) { if (allowPrivate) prefix.member(name) else prefix.nonPrivateMember(name) }
+      trace(i"memberDenot($prefix, $name)", typr, show = true) { if (allowPrivate) prefix.member(name) else prefix.nonPrivateMember(name) }
 
     private def argDenot(param: TypeSymbol)(using Context): Denotation = {
       val cls = param.owner
@@ -2625,7 +2625,7 @@ object Types {
     override def designator: Designator = myDesignator
     override protected def designator_=(d: Designator): Unit = myDesignator = d
 
-    override def underlying(using Context): Type = trace.force("underlying", typr, show = true) { info }
+    override def underlying(using Context): Type = trace("underlying", typr, show = true) { info }
 
     override def translucentSuperType(using Context) = info match {
       case TypeAlias(aliased) => aliased

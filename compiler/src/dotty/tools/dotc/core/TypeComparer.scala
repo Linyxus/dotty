@@ -117,10 +117,10 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
   protected def gadtBounds(sym: Symbol)(using Context) = trace(i"gadtBounds of $sym", subtyping, show = true) {
     ctx.gadt.bounds(sym)
   }
-  protected def fullGadtBounds(sym: Symbol)(using Context) = trace.force(i"fullGadtBounds of $sym", subtyping, show = true) {
+  protected def fullGadtBounds(sym: Symbol)(using Context) = trace(i"fullGadtBounds of $sym", subtyping, show = true) {
     ctx.gadt.fullBounds(sym)
   }
-  protected def simpleFullGadtBounds(sym: Symbol)(using Context) = trace.force(i"simpleFullGadtBounds of $sym", subtyping, show = true) {
+  protected def simpleFullGadtBounds(sym: Symbol)(using Context) = trace(i"simpleFullGadtBounds of $sym", subtyping, show = true) {
     ctx.gadt.simpleFullBounds(sym)
   }
   protected def gadtAddLowerBound(sym: Symbol, b: Type): Boolean = ctx.gadt.addBound(sym, b, isUpper = false)
@@ -215,11 +215,12 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
    *  code would have two extra parameters for each of the many calls that go from
    *  one sub-part of isSubType to another.
    */
-  protected def recur(tp1: Type, tp2: Type): Boolean = trace.force(s"isSubType ${traceInfo(tp1, tp2)} ${approx.show}", subtyping) {
+  protected def recur(tp1: Type, tp2: Type): Boolean = trace(s"isSubType ${traceInfo(tp1, tp2)} ${approx.show}", subtyping) {
     /** Conditional printing function for debugging
       */
     def debugCond: Boolean =
       (i"$tp1" startsWith "(a :") || (i"$tp1" startsWith "x.X")
+      false
     end debugCond
 
     def debugPrintln(s: String): Unit =
@@ -315,7 +316,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
                 && tp1.signature == tp2.signature
                 && !(sym1.isClass && sym2.isClass)  // class types don't subtype each other
                 ) ||
-                trace.force(i"thirdTryNamed $tp1 <:< $tp2", subtyping, show = true) { thirdTryNamed(tp2) }
+                trace(i"thirdTryNamed $tp1 <:< $tp2", subtyping, show = true) { thirdTryNamed(tp2) }
             case _ =>
               debugPrintln("compareNamed : enter secondTry case")
               secondTry
@@ -517,7 +518,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
       case info2: TypeBounds =>
         debugPrintln("thirdTryNamed : enters info2: TypeBounds case")
         def compareGADT: Boolean = {
-          println(s"thirdTryNamed : tp2.symbol = ${tp2.symbol}")
+          debugPrintln(s"thirdTryNamed : tp2.symbol = ${tp2.symbol}")
           val gbounds2 = gadtBounds(tp2.symbol)
           (gbounds2 != null) &&
             (isSubTypeWhenFrozen(tp1, gbounds2.lo) ||
@@ -550,7 +551,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
               // idiom that e.g. `List <: Any`. We have to bootstrap without scalac first.
             if (cls2 eq AnyClass) return true
             if (cls2 == defn.SingletonClass && tp1.isStable) return true
-            return trace.force(i"tryBaseType $tp1 <:< $cls2", subtyping, show = true) { tryBaseType(cls2) }
+            return trace(i"tryBaseType $tp1 <:< $cls2", subtyping, show = true) { tryBaseType(cls2) }
           }
           else if (cls2.is(JavaDefined)) {
             // If `cls2` is parameterized, we are seeing a raw type, so we need to compare only the symbol
@@ -772,7 +773,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
     }
 
     def tryBaseType(cls2: Symbol) = {
-      val base = trace.force(i"nonExprBaseType of $tp1 and $cls2", subtyping) { nonExprBaseType(tp1, cls2) }
+      val base = trace(i"nonExprBaseType of $tp1 and $cls2", subtyping) { nonExprBaseType(tp1, cls2) }
       if (base.exists && (base `ne` tp1))
         isSubType(base, tp2, if (tp1.isRef(cls2)) approx else approx.addLow) ||
         base.isInstanceOf[OrType] && fourthTry
@@ -1324,7 +1325,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
 
   private def nonExprBaseType(tp: Type, cls: Symbol)(using Context): Type =
     if tp.isInstanceOf[ExprType] then NoType
-    else trace.force(i"$tp.baseType($cls)", subtyping) { tp.baseType(cls) }
+    else trace(i"$tp.baseType($cls)", subtyping) { tp.baseType(cls) }
 
   /** If `tp` is an external reference to an enclosing module M that contains opaque types,
    *  convert to M.this.
