@@ -77,7 +77,7 @@ trait PatternTypeConstrainer { self: TypeComparer =>
    *  scrutinee and pattern types. This does not apply if the pattern type is only applied to type variables,
    *  in which case the subtyping relationship "heals" the type.
    */
-  def constrainPatternType(pat: Type, scrut: Type): Boolean = trace(i"constrainPatternType($scrut, $pat)(ctx.gadt.scrutName = ${ctx.gadt.scrutName})", gadts) {
+  def constrainPatternType(pat: Type, scrut: Type): Boolean = trace.force(i"constrainPatternType $scrut & $pat", gadts) {
 
     def typeBuilder(types: List[Type], func: (Type, Type) => Type): Type =
       @annotation.tailrec def recur(xs: List[Type], acc: Type): Type = xs match {
