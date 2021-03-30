@@ -1540,7 +1540,7 @@ class Typer extends Namer
   }
 
   /** Type a case. */
-  def typedCase(tree: untpd.CaseDef, sel: Tree, wideSelType: Type, pt: Type)(using Context): CaseDef = trace(i"typedCase($tree, $sel, $wideSelType, $pt)", gadts, res => i"$res") {
+  def typedCase(tree: untpd.CaseDef, sel: Tree, wideSelType: Type, pt: Type)(using Context): CaseDef = trace.force(s"typedCase($tree, $sel, $wideSelType, $pt)", gadts, res => i"$res") {
     val originalCtx = ctx
     val gadtCtx: Context = ctx.fresh.setFreshGADTBounds
 
@@ -1565,7 +1565,9 @@ class Typer extends Namer
       assignType(cpy.CaseDef(tree)(pat1, guard1, body1), pat1, body1)
     }
 
-    val pat1 = typedPattern(tree.pat, wideSelType)(using gadtCtx)
+    val selType = sel.tpe
+
+    val pat1 = trace.force(i"typedPattern(${tree.pat}, $selType)", typr, show = true) { typedPattern(tree.pat, selType)(using gadtCtx) }
     caseRest(pat1)(
       using Nullables.caseContext(sel, pat1)(
         using gadtCtx.fresh.setNewScope))
