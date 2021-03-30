@@ -758,7 +758,7 @@ class Typer extends Namer
         assignType(cpy.New(tree)(tpt1), tpt1)
     }
 
-  def typedTyped(tree: untpd.Typed, pt: Type)(using Context): Tree = trace.force(i"typedTyped($tree, $pt)", gadts, show = true) {
+  def typedTyped(tree: untpd.Typed, pt: Type)(using Context): Tree = trace(i"typedTyped($tree, $pt)", gadts, show = true) {
 
     /*  Handles three cases:
      *  @param  ifPat    how to handle a pattern (_: T)
@@ -815,7 +815,7 @@ class Typer extends Namer
         val tpt1 = typedTpt
         if !ctx.isAfterTyper && pt != defn.ImplicitScrutineeTypeRef then
           withMode(Mode.GadtConstraintInference) {
-            trace.force(i"TypeComparer.constrainPatternType ${tpt1.tpe} <:< $pt", typr) {
+            trace(i"TypeComparer.constrainPatternType ${tpt1.tpe} <:< $pt", typr) {
               TypeComparer.constrainPatternType(tpt1.tpe, pt)
             }
           }
@@ -1540,7 +1540,7 @@ class Typer extends Namer
   }
 
   /** Type a case. */
-  def typedCase(tree: untpd.CaseDef, sel: Tree, wideSelType: Type, pt: Type)(using Context): CaseDef = trace.force(s"typedCase($tree, $sel, $wideSelType, $pt)", gadts, res => i"$res") {
+  def typedCase(tree: untpd.CaseDef, sel: Tree, wideSelType: Type, pt: Type)(using Context): CaseDef = trace(s"typedCase($tree, $sel, $wideSelType, $pt)", gadts, res => i"$res") {
     val originalCtx = ctx
     val gadtCtx: Context = ctx.fresh.setFreshGADTBounds
 
@@ -1567,7 +1567,7 @@ class Typer extends Namer
 
     val selType = sel.tpe
 
-    val pat1 = trace.force(i"typedPattern(${tree.pat}, $selType)", typr, show = true) { typedPattern(tree.pat, selType)(using gadtCtx) }
+    val pat1 = trace(i"typedPattern(${tree.pat}, $selType)", typr, show = true) { typedPattern(tree.pat, selType)(using gadtCtx) }
     caseRest(pat1)(
       using Nullables.caseContext(sel, pat1)(
         using gadtCtx.fresh.setNewScope))

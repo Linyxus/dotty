@@ -40,7 +40,7 @@ sealed abstract class GadtConstraint extends Showable {
   def addToConstraint(sym: Symbol)(using Context): Boolean = addToConstraint(sym :: Nil)
 
   /** Add type members with bounds to constraint, correctly handling inter-dependencies. */
-  def addTypeMembersToConstraint(memberNames: List[Name], memberBounds: List[(Name, TypeBounds)], recur: (Type, Type) => Boolean)(using Context): Option[List[Name]]
+  def addTypeMembersToConstraint(scrutBounds: List[(Name, TypeBounds)], patBounds: List[(Name, TypeBounds)], scrutPath: Option[TermRef])(using Context): Option[List[Name]]
 
   /** Further constrain a symbol already present in the constraint. */
   def addBound(sym: Symbol, bound: Type, isUpper: Boolean)(using Context): Boolean
@@ -89,6 +89,8 @@ final class ProperGadtConstraint private(
   private var reverseMapping: SimpleIdentityMap[TypeParamRef, Symbol],
   private var nameMapping: SimpleIdentityMap[Name, TypeVar],
   private var reverseNameMapping: SimpleIdentityMap[TypeParamRef, Name],
+  private var pathDepMapping: SimpleIdentityMap[TermRef, SimpleIdentityMap[Name, TypeVar]],
+  private var reversePathDepMapping: SimpleIdentityMap[TypeParamRef, (TermRef, Name)],
   private var _scrutName: Option[String],
   private var myScrutStructBounds: List[(Name, Type)],
   private var myPatStructBounds: List[(Name, Type)],
@@ -103,6 +105,8 @@ final class ProperGadtConstraint private(
     /** Mapping between names and internal types */
     nameMapping = SimpleIdentityMap.empty,
     reverseNameMapping = SimpleIdentityMap.empty,
+    pathDepMapping = SimpleIdentityMap.empty,
+    reversePathDepMapping = SimpleIdentityMap.empty,
     _scrutName = None,
     myScrutStructBounds = Nil,
     myPatStructBounds = Nil,
@@ -117,8 +121,14 @@ final class ProperGadtConstraint private(
     subsumes(extractConstraint(left), extractConstraint(right), extractConstraint(pre))
   }
 
-  override def addTypeMembersToConstraint(memberNames: List[Name], memberBounds: List[(Name, TypeBounds)], recur: (Type, Type) => Boolean)(using Context): Option[List[Name]] = {
+  override def addTypeMembersToConstraint(scrutBounds: List[(Name, TypeBounds)], patBounds: List[(Name, TypeBounds)], scrutPath: Option[TermRef])(using Context): Option[List[Name]] = {
     import NameKinds.DepParamName
+
+    val memberBounds = patBounds ++ scrutBounds
+    val memberNames = (memberBounds map (_._1)).distinct
+
+    // compute the set of scrutinee refined names
+    val scrutNames = Set.from(scrutBounds map (_._1))
 
     val names = memberNames map (x => DepParamName.fresh(x.toTypeName))
 
@@ -129,10 +139,26 @@ final class ProperGadtConstraint private(
       pt => defn.AnyType
     )
 
-    val tvars = names.lazyZip(poly1.paramRefs).map { case (name, paramRef) =>
+    val tvars = memberNames.lazyZip(poly1.paramRefs).map { case (name, paramRef) =>
       val tv = TypeVar(paramRef, creatorState = null)
       nameMapping = nameMapping.updated(name, tv)
       reverseNameMapping = reverseNameMapping.updated(tv.origin, name)
+
+      scrutPath foreach {
+        case scrutPath if scrutNames contains name =>
+          pathDepMapping = pathDepMapping.updated(
+            scrutPath,
+            pathDepMapping(scrutPath) match {
+              case null => SimpleIdentityMap.empty.updated(name, tv)
+              case m => m.updated(name, tv)
+            }
+          )
+          reversePathDepMapping = reversePathDepMapping.updated(tv.origin, scrutPath -> name)
+          println(i"path dep type with path $scrutPath and name $name is mapped to $tv")
+          println(i"pathDepMapping = $pathDepMapping")
+          println(i"reversePathDepMapping = $reversePathDepMapping")
+      }
+
       tv
     }
 
@@ -398,6 +424,16 @@ final class ProperGadtConstraint private(
         fullBounds(tv.origin)
     }
 
+  def fullBoundsForPathDepType(path: TermRef, name: Name)(using Context): TypeBounds =
+    pathDepMapping(path) match {
+      case null => null
+      case m => m(name) match {
+        case null => null
+        case tv =>
+          fullBounds(tv.origin)
+      }
+    }
+
   override def bounds(sym: Symbol)(using Context): TypeBounds = trace(i"bounds($sym)", gadts, show = true) {
     mapping(sym) match {
       case null => null
@@ -428,6 +464,8 @@ final class ProperGadtConstraint private(
     reverseMapping,
     nameMapping,
     reverseNameMapping,
+    pathDepMapping,
+    reversePathDepMapping,
     None,
     Nil,
     Nil,
@@ -440,6 +478,8 @@ final class ProperGadtConstraint private(
       this.reverseMapping = other.reverseMapping
       this.nameMapping = other.nameMapping
       this.reverseNameMapping = other.reverseNameMapping
+      this.pathDepMapping = other.pathDepMapping
+      this.reversePathDepMapping = other.reversePathDepMapping
     case _ => ;
   }
 
@@ -519,6 +559,11 @@ final class ProperGadtConstraint private(
     nameMapping.foreachBinding { case (name, _) =>
       sb ++= i"$name: ${fullBoundsForName(name)}\n"
     }
+    pathDepMapping.foreachBinding { case (path, m) =>
+      m.foreachBinding { case (name, _) =>
+        sb ++= i"$path.$name ${fullBoundsForPathDepType(path, name)}"
+      }
+    }
     sb.result
   }
 
@@ -554,7 +599,7 @@ final class ProperGadtConstraint private(
 
   override def equalizeNames(name1: Name, name2: Name)(using Context): Boolean = unsupported("EmptyGadtConstraint.equalizeNames")
 
-  override def addTypeMembersToConstraint(memberNames: List[Name], memberBounds: List[(Name, TypeBounds)], recur: (Type, Type) => Boolean)(using Context): Option[List[Name]] = unsupported("EmptyGadtConstraint.addTypeMemebrsToCohnstraints")
+  override def addTypeMembersToConstraint(scrutBounds: List[(Name, TypeBounds)], patBounds: List[(Name, TypeBounds)], scrutPath: Option[TermRef])(using Context): Option[List[Name]] = unsupported("EmptyGadtConstraint.addTypeMemebrsToCohnstraints")
 
   override def approximation(sym: Symbol, fromBelow: Boolean)(using Context): Type = unsupported("EmptyGadtConstraint.approximation")
 

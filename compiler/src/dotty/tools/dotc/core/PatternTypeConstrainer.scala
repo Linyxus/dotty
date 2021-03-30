@@ -109,16 +109,6 @@ trait PatternTypeConstrainer { self: TypeComparer =>
       case tp => tp
     }
 
-    def collectRefinement(tp: Type): List[(Name, TypeBounds)] = {
-      @annotation.tailrec def recur(tp: Type, acc: List[(Name, TypeBounds)]): List[(Name, TypeBounds)] = tp match {
-        case RefinedType(parent, name, bounds : TypeBounds) => recur(parent, name -> bounds :: acc)
-        case RefinedType(parent, _, _) => recur(parent, acc)
-        case tp: RecType => recur(tp.parent, acc)
-        case _ => acc
-      }
-      recur(tp, Nil)
-    }
-
     def constrainUpcasted(scrut: Type): Boolean = trace(i"constrainUpcasted($scrut)", gadts) {
       // Fold a list of types into an AndType
       def buildAndType(xs: List[Type]): Type = {
@@ -170,24 +160,34 @@ trait PatternTypeConstrainer { self: TypeComparer =>
       }
     }
 
-    val showRef: List[(Name, TypeBounds)] => String = _ map { case (name, bounds) => i"$name >: ${bounds.lo} <: ${bounds.hi}" } mkString "\n"
+    val showRef: List[(Name, TypeBounds)] => String = _ map { (name, bounds) => i"$name >: ${bounds.lo} <: ${bounds.hi}" } mkString "; "
+
+    def collectRefinement(tp: Type): List[(Name, TypeBounds)] = {
+      @annotation.tailrec def recur(tp: Type, acc: List[(Name, TypeBounds)]): List[(Name, TypeBounds)] = tp match {
+        case RefinedType(parent, name, bounds : TypeBounds) => recur(parent, name -> bounds :: acc)
+        case RefinedType(parent, _, _) => recur(parent, acc)
+        case tp: RecType => recur(tp.parent, acc)
+        case _ => acc
+      }
+      recur(tp, Nil)
+    }
+
 
     def constrainTypeMembers(patRef: List[(Name, TypeBounds)], scrutRef: List[(Name, TypeBounds)]): Boolean =
-      trace(s"constrainTypeMembers(patRef =\n${showRef(patRef)},\nscrutRef =\n${showRef(scrutRef)})", gadts) {
-
-        def constrain(names: List[Name], members: List[(Name, TypeBounds)]): Option[List[Name]] = ctx.gadt.addTypeMembersToConstraint(names, members, constrainPatternType)
-
-        val allRef = patRef ++ scrutRef
-        val allNames = allRef map { _._1 }
-        val uniqueNames = allNames.distinct
-
-        val allBounds = uniqueNames map { name =>
-          name -> {
-            allRef filter {_._1 == name} map {_._2}
-          }
+      trace(s"constrainTypeMembers(patRef = ${showRef(patRef)}, scrutRef = ${showRef(scrutRef)})", gadts) {
+        // record simple term ref path for scrut
+        val scrutPath: Option[TermRef] = unWidenScrut match {
+          case tp : TermRef => Some(tp)
+          case _ => None
         }
 
-        constrain(uniqueNames, allRef).isDefined
+        def constrain(scrutBounds: List[(Name, TypeBounds)], patBounds: List[(Name, TypeBounds)]): Option[List[Name]] = ctx.gadt.addTypeMembersToConstraint(scrutBounds, patBounds, scrutPath)
+
+        scrutPath foreach { tp =>
+          println(i"captured scrutinee path $tp")
+        }
+
+        constrain(scrutRef, patRef).isDefined
       }
 
     // collect refined type members
@@ -278,7 +278,7 @@ trait PatternTypeConstrainer { self: TypeComparer =>
       if migrateTo3 || refinementIsInvariant(patternTp) then scrutineeTp
       else widenVariantParams(scrutineeTp)
     val narrowTp = SkolemType(patternTp)
-    trace(i"constraining simple pattern type $narrowTp <:< $widePt", gadts, res => s"$res\ngadt = ${ctx.gadt.debugBoundsDescription}") {
+    trace.force(i"constraining simple pattern type $narrowTp <:< $widePt", gadts, res => s"$res\ngadt = ${ctx.gadt.debugBoundsDescription}") {
       isSubType(narrowTp, widePt)
     }
   }
