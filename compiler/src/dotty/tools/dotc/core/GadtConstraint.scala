@@ -20,6 +20,9 @@ sealed abstract class GadtConstraint extends Showable {
   /** Immediate bounds of `sym`. Does not contain lower/upper symbols (see [[fullBounds]]). */
   def bounds(sym: Symbol)(using Context): TypeBounds
 
+  /** Similar to `bounds`, but looks up bounds for a type-dependent type with `path` and `name`. */
+  def boundsForPathDepType(path: TermRef, name: Name)(using Context): TypeBounds
+
   /** Full bounds of `sym`, including TypeRefs to other lower/upper symbols.
    *
    * @note this performs subtype checks between ordered symbols.
@@ -450,6 +453,15 @@ final class ProperGadtConstraint private(
     }
   }
 
+  override def boundsForPathDepType(path: TermRef, name: Name)(using Context): TypeBounds = pathDepMapping(path) match {
+    case null => null
+    case inner => inner(name) match {
+      case null => null
+      case tv =>
+        bounds(tv.origin)
+    }
+  }
+
   override def contains(sym: Symbol)(using Context): Boolean = trace(s"contrains(${sym.denot.typeRef})", gadts) { mapping(sym) ne null }
 
   override def approximation(sym: Symbol, fromBelow: Boolean)(using Context): Type = {
@@ -585,6 +597,7 @@ final class ProperGadtConstraint private(
 
 @sharable object EmptyGadtConstraint extends GadtConstraint {
   override def bounds(sym: Symbol)(using Context): TypeBounds = null
+  override def boundsForPathDepType(path: TermRef, name: Name)(using Context): TypeBounds = null
   override def fullBounds(sym: Symbol)(using Context): TypeBounds = null
   override def fullBoundsForName(name: Name)(using Context): TypeBounds = null
 

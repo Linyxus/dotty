@@ -115,6 +115,17 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
   private def isBottom(tp: Type) = tp.widen.isRef(NothingClass)
 
   protected def gadtBounds(sym: Symbol)(using Context) = ctx.gadt.bounds(sym)
+  protected def gadtPathDepBounds(path: TermRef, name: Name)(using Context) = ctx.gadt.boundsForPathDepType(path, name)
+  protected def gadtPathDepBoundsNamed(tp: NamedType)(using Context) = tp match {
+    case TypeRef(path : TermRef, name : Name) =>
+      gadtPathDepBounds(path, name)
+    case _ => null
+  }
+  protected def gadtBoundsNamed(tp: NamedType)(using Context) =
+    gadtBounds(tp.symbol) match {
+      case null => gadtPathDepBoundsNamed(tp)
+      case bounds => bounds
+    }
   protected def gadtAddLowerBound(sym: Symbol, b: Type): Boolean = ctx.gadt.addBound(sym, b, isUpper = false)
   protected def gadtAddUpperBound(sym: Symbol, b: Type): Boolean = ctx.gadt.addBound(sym, b, isUpper = true)
 
@@ -500,9 +511,15 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
                 case _ => false
               }) ||
               narrowGADTBounds(tp2, tp1, approx, isUpper = false)) &&
-            { isBottom(tp1) || GADTusage(tp2.symbol) }
+            { isBottom(tp1) || trace.force(i"GADTusage(${tp2.symbol})", subtyping) { GADTusage(tp2.symbol) } }
         }
-        isSubApproxHi(tp1, info2.lo) || compareGADT || tryLiftedToThis2 || fourthTry
+
+        def compareGADTPathDep: Boolean = {
+          val gbounds2 = gadtPathDepBoundsNamed(tp2)
+          (gbounds2 != null) && isSubTypeWhenFrozen(tp1, gbounds2.lo)
+        }
+
+        isSubApproxHi(tp1, info2.lo) || compareGADT || compareGADTPathDep || tryLiftedToThis2 || fourthTry
 
       case _ =>
         val cls2 = tp2.symbol
@@ -758,7 +775,12 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
                 narrowGADTBounds(tp1, tp2, approx, isUpper = true)) &&
                 { tp2.isAny || GADTusage(tp1.symbol) }
             }
-            isSubType(hi1, tp2, approx.addLow) || compareGADT || tryLiftedToThis1
+            def compareGADTPathDep: Boolean = {
+              val gbounds1 = gadtPathDepBoundsNamed(tp1)
+              gbounds1 != null && isSubTypeWhenFrozen(gbounds1.hi, tp2)
+            }
+
+            isSubType(hi1, tp2, approx.addLow) || compareGADT || compareGADTPathDep || tryLiftedToThis1
           case _ =>
             def isNullable(tp: Type): Boolean = tp.widenDealias match {
               case tp: TypeRef => tp.symbol.isNullableClass
