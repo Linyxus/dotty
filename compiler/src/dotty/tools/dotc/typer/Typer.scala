@@ -758,7 +758,7 @@ class Typer extends Namer
         assignType(cpy.New(tree)(tpt1), tpt1)
     }
 
-  def typedTyped(tree: untpd.Typed, pt: Type)(using Context): Tree = trace(i"typedTyped($tree, $pt)", gadts) {
+  def typedTyped(tree: untpd.Typed, pt: Type)(using Context): Tree = trace.force(i"typedTyped($tree, $pt)", gadts, show = true) {
 
     /*  Handles three cases:
      *  @param  ifPat    how to handle a pattern (_: T)
@@ -815,7 +815,7 @@ class Typer extends Namer
         val tpt1 = typedTpt
         if !ctx.isAfterTyper && pt != defn.ImplicitScrutineeTypeRef then
           withMode(Mode.GadtConstraintInference) {
-            trace.force(s"TypeComparer.constrainPatternType ${tpt1} <:< $pt", typr) {
+            trace.force(i"TypeComparer.constrainPatternType ${tpt1.tpe} <:< $pt", typr) {
               TypeComparer.constrainPatternType(tpt1.tpe, pt)
             }
           }
