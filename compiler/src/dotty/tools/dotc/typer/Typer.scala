@@ -772,7 +772,7 @@ class Typer extends Namer
         else {
           import untpd._
           val t = typed(Bind(id.name, Typed(Ident(wildName), tree.tpt)).withSpan(tree.span), pt)
-          trace.force(i"cases.t.tpe", typr, show = true) { t.tpe }
+          trace.force(i"cases.t.tpe", typr, show = false) { t.tpe }
           t
         }
       case _ => ifExpr
