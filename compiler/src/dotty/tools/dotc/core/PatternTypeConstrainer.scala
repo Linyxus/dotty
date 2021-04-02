@@ -183,10 +183,6 @@ trait PatternTypeConstrainer { self: TypeComparer =>
 
         def constrain(scrutBounds: List[(Name, TypeBounds)], patBounds: List[(Name, TypeBounds)]): Option[List[Name]] = ctx.gadt.addTypeMembersToConstraint(scrutBounds, patBounds, scrutPath)
 
-        scrutPath foreach { tp =>
-          println(i"captured scrutinee path $tp")
-        }
-
         constrain(scrutRef, patRef).isDefined
       }
 

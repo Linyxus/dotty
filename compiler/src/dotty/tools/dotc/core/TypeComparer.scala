@@ -511,7 +511,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
                 case _ => false
               }) ||
               narrowGADTBounds(tp2, tp1, approx, isUpper = false)) &&
-            { isBottom(tp1) || trace.force(i"GADTusage(${tp2.symbol})", subtyping) { GADTusage(tp2.symbol) } }
+            { isBottom(tp1) || trace(i"GADTusage(${tp2.symbol})", subtyping) { GADTusage(tp2.symbol) } }
         }
 
         def compareGADTPathDep: Boolean = {

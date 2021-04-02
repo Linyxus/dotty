@@ -157,9 +157,6 @@ final class ProperGadtConstraint private(
             }
           )
           reversePathDepMapping = reversePathDepMapping.updated(tv.origin, scrutPath -> name)
-          println(i"path dep type with path $scrutPath and name $name is mapped to $tv")
-          println(i"pathDepMapping = $pathDepMapping")
-          println(i"reversePathDepMapping = $reversePathDepMapping")
       }
 
       tv
