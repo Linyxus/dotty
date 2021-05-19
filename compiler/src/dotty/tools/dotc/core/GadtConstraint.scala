@@ -10,6 +10,7 @@ import Names.{Name, Designator}
 import util.SimpleIdentityMap
 import collection.mutable
 import printing._
+import dotty.tools.dotc.reporting.trace
 
 import scala.annotation.internal.sharable
 
@@ -313,7 +314,8 @@ final class ProperGadtConstraint private(
                 ref.stripLazyRef
               case _ => tp
             }
-            stripLazyRef(tp) match {
+            // val tp1 = stripLazyRef(tp)
+            tp match {
               case tp @ AndType(tp1, tp2) if !isUpper =>
                 tp.derivedAndType(loop(tp1), loop(tp2))
               case tp @ OrType(tp1, tp2) if isUpper =>
@@ -395,7 +397,7 @@ final class ProperGadtConstraint private(
         stripInternalTypeVar(tp1),
         stripInternalTypeVar(tp2)
       ) match {
-        case (tv1 : TypeVar, t2) => addBound(tv1, t2, isUpper = true)
+        case (tv1 : TypeVar, t2) => trace.force(i"equalize $tv1 <:< $t2", gadts, show = true) { addBound(tv1, t2, isUpper = true) }
         case (t1, tv2: TypeVar) => addBound(tv2, t1, isUpper = false)
         case (t1, t2) => isSub(t1, t2)
       }
@@ -507,7 +509,7 @@ final class ProperGadtConstraint private(
       internalizedBound match {
         case boundTvar: TypeVar =>
           if (boundTvar eq symTvar) true
-          else if (isUpper) addLess(symTvar.origin, boundTvar.origin)
+          else if (isUpper) trace.force(i"addLess ${symTvar.origin} <:< ${boundTvar.origin}", gadts) { addLess(symTvar.origin, boundTvar.origin) }
           else addLess(boundTvar.origin, symTvar.origin)
         case bound =>
           addBoundTransitively(symTvar.origin, bound, isUpper)

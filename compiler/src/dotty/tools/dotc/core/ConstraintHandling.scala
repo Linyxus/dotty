@@ -104,7 +104,7 @@ trait ConstraintHandling {
           val saved = homogenizeArgs
           homogenizeArgs = Config.alignArgsInAnd
           try
-            if isUpper then oldBounds.derivedTypeBounds(lo, hi & bound)
+            if isUpper then oldBounds.derivedTypeBounds(lo, trace.force(i"merging $hi & $bound", constr, show = true) { hi & bound })
             else oldBounds.derivedTypeBounds(lo | bound, hi)
           finally homogenizeArgs = saved
         val c1 = constraint.updateEntry(param, narrowedBounds)
@@ -174,8 +174,8 @@ trait ConstraintHandling {
         val hi2 = constraint.nonParamBounds(p2).hi
         constr.println(i"adding $description down1 = $down1, up2 = $up2$location")
         constraint = constraint.addLess(p1, p2)
-        down1.forall(addOneBound(_, hi2, isUpper = true)) &&
-        up2.forall(addOneBound(_, lo1, isUpper = false))
+        down1.forall(x => trace.force(s"addOneBound $x <: $hi2", constr) { addOneBound(x, hi2, isUpper = true) }) &&
+        up2.forall(x => trace.force(s"addOneBound $x >: $lo1", constr) { addOneBound(x, lo1, isUpper = false) })
       }
     constr.println(i"added $description = $res$location")
     res

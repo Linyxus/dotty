@@ -1,0 +1,92 @@
+#+name: ino
+#+begin_src elisp :cache yes
+  "gadt-LazyRef"
+#+end_src
+
+#+RESULTS[96804343abd157f7459bd62023e4a1a3ef36d0b6]: ino
+: gadt-LazyRef
+
+* Preamble
+
+  #+begin_src elisp :var ino=ino :results silent
+    (write-file (concat ino "-description.org"))
+  #+end_src
+
+  #+begin_src elisp :var ino=ino :results silent
+    (find-file (concat ino ".scala"))
+  #+end_src
+
+  #+begin_src elisp :var ino=ino :results silent
+    (save-excursion
+      (beginning-of-buffer)
+      (while (re-search-forward (rx "$" "ISSUE$") nil t)
+        (replace-match ino t t)))
+  #+end_src
+
+* gadt-LazyRef
+
+#+begin_src scala :tangle gadt-LazyRef.scala
+  trait FooBase {
+    type Bar >: Null <: BarBase { type This <: FooBase.this.Bar }
+    type This >: this.type <: FooBase { type This <: FooBase.this.This }
+
+    def derived(bar: Bar): This = ???
+  }
+
+  trait BarBase {
+    type This >: Null <: BarBase { type This <: BarBase.this.This }
+  }
+
+  object Test {
+    def bad(foo: FooBase): FooBase = foo match {
+      case foo: FooBase => ???
+        // foo.derived(???)  // Triggers infinite loop in TypeAssigner.avoid()
+    }
+  }
+#+end_src
+
+#+begin_src elisp
+  (sbt/run-until-output "scala3-compiler/compile")
+  (setq sbt/compile-arguments "-color:never -Yno-deep-subtypes")
+  (sbt/compile-file-for-output "investigate/gadt-LazyRef.scala")
+#+end_src
+
+#+RESULTS:
+#+begin_example
+[info] running (fork) dotty.tools.dotc.Main -classpath /Users/linyxus/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.13.5/scala-library-2.13.5.jar:/Users/linyxus/Develop/dotty/library/../out/bootstrap/scala3-library-bootstrapped/scala-3.0.0-RC2/scala3-library_3.0.0-RC2-3.0.0-RC2-bin-SNAPSHOT.jar -color:never -Yno-deep-subtypes investigate/gadt-LazyRef.scala
+==> constrainPatternType(FooBase, FooBase)(narrowScrutType = (foo : FooBase))?
+  ==> equalize Bar(param)1 <:< Bar(param)2?
+    ==> addLess Bar(param)1 <:< Bar(param)2?
+      ==> addOneBound TypeParamRef(Bar(param)1) <: RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait BarBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...)))?
+        ==> merging BarBase{This <: LazyRef(FooBase#Bar)} & BarBase{This <: LazyRef(FooBase#Bar)}?
+        <== merging BarBase{This <: LazyRef(FooBase#Bar)} & BarBase{This <: LazyRef(FooBase#Bar)} = BarBase{This <: LazyRef(FooBase#Bar)}
+      <== addOneBound TypeParamRef(Bar(param)1) <: RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait BarBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...))) = true
+      ==> addOneBound TypeParamRef(Bar(param)2) >: TypeRef(TermRef(ThisType(TypeRef(NoPrefix,module class <root>)),object scala),class Null)?
+      <== addOneBound TypeParamRef(Bar(param)2) >: TypeRef(TermRef(ThisType(TypeRef(NoPrefix,module class <root>)),object scala),class Null) = true
+    <== addLess Bar(param)1 <:< Bar(param)2 = true
+  <== equalize Bar(param)1 <:< Bar(param)2 = true
+  ==> equalize Bar(param)2 <:< Bar(param)1?
+    ==> addLess Bar(param)2 <:< Bar(param)1?
+      ==> merging BarBase{This <: LazyRef(FooBase#Bar)} & BarBase{This <: LazyRef(FooBase#Bar)}?
+      <== merging BarBase{This <: LazyRef(FooBase#Bar)} & BarBase{This <: LazyRef(FooBase#Bar)} = BarBase{This <: LazyRef(FooBase#Bar)}
+    <== addLess Bar(param)2 <:< Bar(param)1 = true
+  <== equalize Bar(param)2 <:< Bar(param)1 = true
+  ==> equalize This(param)1 <:< This(param)2?
+    ==> addLess This(param)1 <:< This(param)2?
+      ==> addOneBound TypeParamRef(This(param)1) <: RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait FooBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...)))?
+        ==> merging FooBase{This <: LazyRef(FooBase#This)} & FooBase{This <: LazyRef(FooBase#This)}?
+        <== merging FooBase{This <: LazyRef(FooBase#This)} & FooBase{This <: LazyRef(FooBase#This)} = FooBase{This <: LazyRef(FooBase#This)}
+      <== addOneBound TypeParamRef(This(param)1) <: RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait FooBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...))) = true
+      ==> addOneBound TypeParamRef(This(param)2) >: TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing)?
+      <== addOneBound TypeParamRef(This(param)2) >: TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing) = true
+    <== addLess This(param)1 <:< This(param)2 = true
+  <== equalize This(param)1 <:< This(param)2 = true
+  ==> equalize This(param)2 <:< This(param)1?
+    ==> addLess This(param)2 <:< This(param)1?
+      ==> merging FooBase{This <: LazyRef(FooBase#This)} & FooBase{This <: LazyRef(FooBase#This)}?
+      <== merging FooBase{This <: LazyRef(FooBase#This)} & FooBase{This <: LazyRef(FooBase#This)} = FooBase{This <: LazyRef(FooBase#This)}
+    <== addLess This(param)2 <:< This(param)1 = true
+  <== equalize This(param)2 <:< This(param)1 = true
+<== constrainPatternType(FooBase, FooBase)(narrowScrutType = (foo : FooBase)) = true
+[success] Total time: 8 s, completed May 19, 2021, 9:11:27 PM
+#+end_example
