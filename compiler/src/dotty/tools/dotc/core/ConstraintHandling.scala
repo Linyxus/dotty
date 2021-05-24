@@ -104,7 +104,7 @@ trait ConstraintHandling {
           val saved = homogenizeArgs
           homogenizeArgs = Config.alignArgsInAnd
           try
-            if isUpper then oldBounds.derivedTypeBounds(lo, trace.force(i"merging $hi & $bound", constr, show = true) { hi & bound })
+            if isUpper then oldBounds.derivedTypeBounds(lo, trace.force(s"merging $hi & $bound", constr, show = true) { hi & bound })
             else oldBounds.derivedTypeBounds(lo | bound, hi)
           finally homogenizeArgs = saved
         val c1 = constraint.updateEntry(param, narrowedBounds)
