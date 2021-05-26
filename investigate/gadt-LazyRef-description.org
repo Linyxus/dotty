@@ -53,394 +53,47 @@
 
 #+RESULTS:
 #+begin_example
-[info] running (fork) dotty.tools.dotc.Main -classpath /Users/linyxus/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.13.5/scala-library-2.13.5.jar:/Users/linyxus/dev/dotty/library/../out/bootstrap/scala3-library-bootstrapped/scala-3.0.0-RC2/scala3-library_3.0.0-RC2-3.0.0-RC2-bin-SNAPSHOT.jar -color:never -Yno-deep-subtypes investigate/gadt-LazyRef.scala
-==> constrainPatternType(FooBase, FooBase)(narrowScrutType = (foo : FooBase))?
-  ==> equalize Bar(param)1 <:< Bar(param)2?
-    ==> addLess Bar(param)1 <:< Bar(param)2?
-      ==> addOneBound TypeParamRef(Bar(param)1) <: RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait BarBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...)))?
-        ==> merging RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait BarBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...))) & RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait BarBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...)))?
-        <== merging RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait BarBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...))) & RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait BarBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...))) = BarBase{This <: LazyRef(FooBase#Bar)}
-      <== addOneBound TypeParamRef(Bar(param)1) <: RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait BarBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...))) = true
-      ==> addOneBound TypeParamRef(Bar(param)2) >: TypeRef(TermRef(ThisType(TypeRef(NoPrefix,module class <root>)),object scala),class Null)?
-      <== addOneBound TypeParamRef(Bar(param)2) >: TypeRef(TermRef(ThisType(TypeRef(NoPrefix,module class <root>)),object scala),class Null) = true
-    <== addLess Bar(param)1 <:< Bar(param)2 = true
-  <== equalize Bar(param)1 <:< Bar(param)2 = true
-  ==> equalize Bar(param)2 <:< Bar(param)1?
-    ==> addLess Bar(param)2 <:< Bar(param)1?
-      ==> merging RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait BarBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...))) & RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait BarBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...)))?
-      <== merging RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait BarBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...))) & RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait BarBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...))) = BarBase{This <: LazyRef(FooBase#Bar)}
-    <== addLess Bar(param)2 <:< Bar(param)1 = true
-  <== equalize Bar(param)2 <:< Bar(param)1 = true
-  ==> equalize This(param)1 <:< This(param)2?
-    ==> addLess This(param)1 <:< This(param)2?
-      ==> addOneBound TypeParamRef(This(param)1) <: RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait FooBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...)))?
-        ==> merging RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait FooBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...))) & RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait FooBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...)))?
-assertion failure for FooBase <:< Nothing, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase#This)} <:< Nothing, frozen = true
-assertion failure for FooBase#This <:< Nothing, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase{This <: LazyRef(FooBase#This)}#This)} & FooBase#This <:< Nothing, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase{This <: LazyRef(FooBase#This)}#This)} & FooBase#This <:< Nothing | Nothing, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase{This <: LazyRef(FooBase#This)}#This)} & FooBase#This <:< FooBase#This#This, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase{This <: LazyRef(FooBase#This)}#This)} & FooBase#This <:< LazyRef(FooBase#This#This), frozen = true
-assertion failure for type bounds [ >: Nothing | Nothing <: FooBase{This <: LazyRef(FooBase{This <: LazyRef(FooBase#This)}#This)} & FooBase#This] <:< type bounds [ <: LazyRef(FooBase#This#This)], frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase#This)} <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for FooBase#This <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for LazyRef(FooBase#This) <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for FooBase <:< FooBase#This#This, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase#This)} <:< FooBase#This#This, frozen = true
-assertion failure for FooBase#This <:< FooBase#This#This, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase{This <: LazyRef(FooBase#This)}#This)} & FooBase#This <:< FooBase#This#This, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase{This <: LazyRef(FooBase#This)}#This)} & FooBase#This <:< LazyRef(FooBase#This#This), frozen = true
-assertion failure for type bounds [ <: FooBase{This <: LazyRef(FooBase{This <: LazyRef(FooBase#This)}#This)} & FooBase#This] <:< type bounds [ <: LazyRef(FooBase#This#This)], frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase#This)} <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for FooBase#This <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for LazyRef(FooBase#This) <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for FooBase <:< FooBase#This#This, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase#This)} <:< FooBase#This#This, frozen = true
-assertion failure for FooBase#This <:< FooBase#This#This, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase{This <: LazyRef(FooBase#This)}#This)} & FooBase#This <:< FooBase#This#This, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase{This <: LazyRef(FooBase#This)}#This)} & FooBase#This <:< LazyRef(FooBase#This#This), frozen = true
-assertion failure for type bounds [ <: FooBase{This <: LazyRef(FooBase{This <: LazyRef(FooBase#This)}#This)} & FooBase#This] <:< type bounds [ <: LazyRef(FooBase#This#This)], frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase#This)} <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for FooBase#This <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for LazyRef(FooBase#This) <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for FooBase <:< FooBase#This#This, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase#This)} <:< FooBase#This#This, frozen = true
-assertion failure for FooBase#This <:< FooBase#This#This, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase#This#This)} & FooBase#This <:< FooBase#This#This, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase#This#This)} & FooBase#This <:< LazyRef(FooBase#This#This), frozen = true
-assertion failure for type bounds [ <: FooBase{This <: LazyRef(FooBase#This#This)} & FooBase#This] <:< type bounds [ <: LazyRef(FooBase#This#This)], frozen = true
-assertion failure for FooBase#This <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for LazyRef(FooBase#This) <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase#This#This)} & FooBase#This <:< LazyRef(...), frozen = true
-assertion failure for type bounds [ <: FooBase{This <: LazyRef(FooBase#This#This)} & FooBase#This] <:< type bounds [[cannot display due to assertion failed, raw string = TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(null))]], frozen = true
-assertion failure for FooBase#This <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for LazyRef(FooBase#This) <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for FooBase#This <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for LazyRef(FooBase#This) <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for FooBase#This <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for LazyRef(FooBase#This) <:< FooBase{This <: LazyRef(FooBase#This#This)}, frozen = true
-assertion failure for FooBase#This <:< FooBase{This <: LazyRef(FooBase{This <: LazyRef(FooBase#This)}#This)}, frozen = true
-assertion failure for LazyRef(FooBase#This) <:< FooBase{This <: LazyRef(FooBase{This <: LazyRef(FooBase#This)}#This)}, frozen = true
-assertion failure for FooBase{This <: LazyRef(FooBase#This)} <:< FooBase{This <: LazyRef(FooBase#This)}, frozen = true
-        <== merging RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait FooBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...))) & RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait FooBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...))) = <missing> (with exception java.lang.AssertionError: assertion failed)
-      <== addOneBound TypeParamRef(This(param)1) <: RefinedType(TypeRef(ThisType(TypeRef(NoPrefix,module class <empty>)),trait FooBase),This,TypeBounds(TypeRef(ThisType(TypeRef(NoPrefix,module class scala)),class Nothing),LazyRef(...))) = <missing> (with exception java.lang.AssertionError: assertion failed)exception occurred while typechecking investigate/gadt-LazyRef.scala
-
-exception occurred while compiling investigate/gadt-LazyRef.scala
-Exception in thread "main" java.lang.AssertionError: assertion failed
-	at scala.runtime.Scala3RunTime$.assertFailed(Scala3RunTime.scala:11)
-	at dotty.tools.dotc.core.Types$LazyRef.ref(Types.scala:2802)
-	at dotty.tools.dotc.core.Types$LazyRef.underlying(Types.scala:2823)
-	at dotty.tools.dotc.core.Types$Type.typeSymbol(Types.scala:473)
-	at dotty.tools.dotc.core.Types$Type.isFromJavaObject(Types.scala:298)
-	at dotty.tools.dotc.printing.PlainPrinter.toTextRHS$$anonfun$1(PlainPrinter.scala:382)
-	at dotty.tools.dotc.printing.MessageLimiter.controlled(MessageLimiter.scala:23)
-	at dotty.tools.dotc.printing.PlainPrinter.controlled(PlainPrinter.scala:36)
-	at dotty.tools.dotc.printing.PlainPrinter.toTextRHS(PlainPrinter.scala:407)
-	at dotty.tools.dotc.printing.PlainPrinter.toTextRefinement(PlainPrinter.scala:110)
-	at dotty.tools.dotc.printing.PlainPrinter.toText$$anonfun$3$$anonfun$1(PlainPrinter.scala:167)
-	at scala.collection.immutable.List.map(List.scala:246)
-	at dotty.tools.dotc.printing.PlainPrinter.toText$$anonfun$1(PlainPrinter.scala:167)
-	at dotty.tools.dotc.printing.MessageLimiter.controlled(MessageLimiter.scala:23)
-	at dotty.tools.dotc.printing.PlainPrinter.controlled(PlainPrinter.scala:36)
-	at dotty.tools.dotc.printing.PlainPrinter.toText(PlainPrinter.scala:248)
-	at dotty.tools.dotc.printing.RefinedPrinter.toText$$anonfun$1(RefinedPrinter.scala:266)
-	at dotty.tools.dotc.printing.MessageLimiter.controlled(MessageLimiter.scala:23)
-	at dotty.tools.dotc.printing.PlainPrinter.controlled(PlainPrinter.scala:36)
-	at dotty.tools.dotc.printing.RefinedPrinter.toText(RefinedPrinter.scala:268)
-	at dotty.tools.dotc.core.Types$Type.toText(Types.scala:1803)
-	at dotty.tools.dotc.printing.Showable.show(Showable.scala:23)
-	at dotty.tools.dotc.printing.Showable.show$(Showable.scala:9)
-	at dotty.tools.dotc.core.Types$Type.show(Types.scala:93)
-	at dotty.tools.dotc.core.TypeComparer$.show(TypeComparer.scala:2601)
-	at dotty.tools.dotc.core.TypeComparer.showGoal$$anonfun$1(TypeComparer.scala:2366)
-	at dotty.tools.dotc.reporting.NoExplanation.msg(Message.scala:130)
-	at dotty.tools.dotc.reporting.Message.message(Message.scala:85)
-	at dotty.tools.dotc.reporting.Message.isNonSensical(Message.scala:97)
-	at dotty.tools.dotc.reporting.HideNonSensicalMessages.isHidden(HideNonSensicalMessages.scala:16)
-	at dotty.tools.dotc.reporting.HideNonSensicalMessages.isHidden$(HideNonSensicalMessages.scala:10)
-	at dotty.tools.dotc.reporting.AbstractReporter.isHidden(AbstractReporter.scala:8)
-	at dotty.tools.dotc.reporting.Reporter.report(Reporter.scala:148)
-	at dotty.tools.dotc.report$.echo(report.scala:21)
-	at dotty.tools.dotc.core.TypeComparer.showGoal(TypeComparer.scala:2366)
-	at dotty.tools.dotc.core.TypeComparer.recur(TypeComparer.scala:1289)
-	at dotty.tools.dotc.core.TypeComparer.isSubType(TypeComparer.scala:187)
-	at dotty.tools.dotc.core.TypeComparer.isSubType(TypeComparer.scala:197)
-	at dotty.tools.dotc.core.TypeCompare    <== addLess This(param)1 <:< This(param)2 = <missing> (with exception java.lang.AssertionError: assertion failed)
-  <== equalize This(param)1 <:< This(param)2 = <missing> (with exception java.lang.AssertionError: assertion failed)
-<== constrainPatternType(FooBase, FooBase)(narrowScrutType = (foo : FooBase)) = <missing> (with exception java.lang.AssertionError: assertion failed)
-java.lang.AssertionError: assertion failed while compiling investigate/gadt-LazyRef.scala
-r.isSub(TypeComparer.scala:199)
-	at dotty.tools.dotc.core.ConstraintHandling.op$proxy6$1(ConstraintHandling.scala:221)
-	at dotty.tools.dotc.core.ConstraintHandling.isSubTypeWhenFrozen(ConstraintHandling.scala:221)
-	at dotty.tools.dotc.core.ConstraintHandling.isSubTypeWhenFrozen$(ConstraintHandling.scala:26)
-	at dotty.tools.dotc.core.TypeComparer.isSubTypeWhenFrozen(TypeComparer.scala:30)
-	at dotty.tools.dotc.core.TypeComparer$.isSubTypeWhenFrozen(TypeComparer.scala:2648)
-	at dotty.tools.dotc.core.Types$Type.frozen_$less$colon$less(Types.scala:1023)
-	at dotty.tools.dotc.core.Types$TypeBounds.$amp(Types.scala:4720)
-	at dotty.tools.dotc.core.Types$TypeBounds.$amp(Types.scala:4730)
-	at dotty.tools.dotc.core.Types$Type.recoverable_$amp(Types.scala:1143)
-	at dotty.tools.dotc.core.Types$Type.goRefined$1(Types.scala:771)
-	at dotty.tools.dotc.core.Types$Type.go$1(Types.scala:690)
-	at dotty.tools.dotc.core.Types$Type.findMember(Types.scala:857)
-	at dotty.tools.dotc.core.Types$Type.memberBasedOnFlags(Types.scala:654)
-	at dotty.tools.dotc.core.Types$Type.member(Types.scala:638)
-	at dotty.tools.dotc.core.TypeComparer.hasMatchingMember(TypeComparer.scala:1742)
-	at dotty.tools.dotc.core.TypeComparer.compareRefinedSlow$1(TypeComparer.scala:583)
-	at dotty.tools.dotc.core.TypeComparer.compareRefined$1(TypeComparer.scala:599)
-	at dotty.tools.dotc.core.TypeComparer.thirdTry$1(TypeComparer.scala:605)
-	at dotty.tools.dotc.core.TypeComparer.secondTry$1(TypeComparer.scala:397)
-	at dotty.tools.dotc.core.TypeComparer.firstTry$1(TypeComparer.scala:385)
-	at dotty.tools.dotc.core.TypeComparer.recur(TypeComparer.scala:1279)
-	at dotty.tools.dotc.core.TypeComparer.secondTry$1(TypeComparer.scala:447)
-	at dotty.tools.dotc.core.TypeComparer.firstTry$1(TypeComparer.scala:385)
-	at dotty.tools.dotc.core.TypeComparer.recur(TypeComparer.scala:1279)
-	at dotty.tools.dotc.core.TypeComparer.isSubType(TypeComparer.scala:187)
-	at dotty.tools.dotc.core.TypeComparer.isSubType(TypeComparer.scala:197)
-	at dotty.tools.dotc.core.TypeComparer.isSub(TypeComparer.scala:199)
-	at dotty.tools.dotc.core.ConstraintHandling.op$proxy6$1(ConstraintHandling.scala:221)
-	at dotty.tools.dotc.core.ConstraintHandling.isSubTypeWhenFrozen(ConstraintHandling.scala:221)
-	at dotty.tools.dotc.core.ConstraintHandling.isSubTypeWhenFrozen$(ConstraintHandling.scala:26)
-	at dotty.tools.dotc.core.TypeComparer.isSubTypeWhenFrozen(TypeComparer.scala:30)
-	at dotty.tools.dotc.core.TypeComparer$.isSubTypeWhenFrozen(TypeComparer.scala:2648)
-	at dotty.tools.dotc.core.Types$Type.frozen_$less$colon$less(Types.scala:1023)
-	at dotty.tools.dotc.core.Types$TypeBounds.$amp(Types.scala:4720)
-	at dotty.tools.dotc.core.Types$TypeBounds.$amp(Types.scala:4730)
-	at dotty.tools.dotc.core.Types$Type.recoverable_$amp(Types.scala:1143)
-	at dotty.tools.dotc.core.Types$Type.goRefined$1(Types.scala:771)
-	at dotty.tools.dotc.core.Types$Type.go$1(Types.scala:690)
-	at dotty.tools.dotc.core.Types$Type.findMember(Types.scala:857)
-	at dotty.tools.dotc.core.Types$Type.memberBasedOnFlags(Types.scala:654)
-	at dotty.tools.dotc.core.Types$Type.member(Types.scala:638)
-	at dotty.tools.dotc.core.TypeComparer.hasMatchingMember(TypeComparer.scala:1742)
-	at dotty.tools.dotc.core.TypeComparer.compareRefinedSlow$1(TypeComparer.scala:583)
-	at dotty.tools.dotc.core.TypeComparer.compareRefined$1(TypeComparer.scala:599)
-	at dotty.tools.dotc.core.TypeComparer.thirdTry$1(TypeComparer.scala:605)
-	at dotty.tools.dotc.core.TypeComparer.secondTry$1(TypeComparer.scala:397)
-	at dotty.tools.dotc.core.TypeComparer.firstTry$1(TypeComparer.scala:385)
-	at dotty.tools.dotc.core.TypeComparer.recur(TypeComparer.scala:1279)
-	at dotty.tools.dotc.core.TypeComparer.secondTry$1(TypeComparer.scala:447)
-	at dotty.tools.dotc.core.TypeComparer.firstTry$1(TypeComparer.scala:385)
-	at dotty.tools.dotc.core.TypeComparer.recur(TypeComparer.scala:1279)
-	at dotty.tools.dotc.core.TypeComparer.isSubType(TypeComparer.scala:187)
-	at dotty.tools.dotc.core.TypeComparer.isSubType(TypeComparer.scala:197)
-	at dotty.tools.dotc.core.TypeComparer.isSub(TypeComparer.scala:199)
-	at dotty.tools.dotc.core.ConstraintHandling.op$proxy6$1(ConstraintHandling.scala:221)
-	at dotty.tools.dotc.core.ConstraintHandling.isSubTypeWhenFrozen(ConstraintHandling.scala:221)
-	at dotty.tools.dotc.core.ConstraintHandling.isSubTypeWhenFrozen$(ConstraintHandling.scala:26)
-	at dotty.tools.dotc.core.TypeComparer.isSubTypeWhenFrozen(TypeComparer.scala:30)
-	at dotty.tools.dotc.core.TypeComparer$.isSubTypeWhenFrozen(TypeComparer.scala:2648)
-	at dotty.tools.dotc.core.Types$Type.frozen_$less$colon$less(Types.scala:1023)
-	at dotty.tools.dotc.core.Types$TypeBounds.$amp(Types.scala:4720)
-	at dotty.tools.dotc.core.Types$TypeBounds.$amp(Types.scala:4730)
-	at dotty.tools.dotc.core.Types$Type.recoverable_$amp(Types.scala:1143)
-	at dotty.tools.dotc.core.Types$Type.goRefined$1(Types.scala:771)
-	at dotty.tools.dotc.core.Types$Type.go$1(Types.scala:690)
-	at dotty.tools.dotc.core.Types$Type.findMember(Types.scala:857)
-	at dotty.tools.dotc.core.Types$Type.memberBasedOnFlags(Types.scala:654)
-	at dotty.tools.dotc.core.Types$Type.member(Types.scala:638)
-	at dotty.tools.dotc.core.TypeComparer.hasMatchingMember(TypeComparer.scala:1742)
-	at dotty.tools.dotc.core.TypeComparer.compareRefinedSlow$1(TypeComparer.scala:583)
-	at dotty.tools.dotc.core.TypeComparer.compareRefined$1(TypeComparer.scala:599)
-	at dotty.tools.dotc.core.TypeComparer.thirdTry$1(TypeComparer.scala:605)
-	at dotty.tools.dotc.core.TypeComparer.secondTry$1(TypeComparer.scala:397)
-	at dotty.tools.dotc.core.TypeComparer.firstTry$1(TypeComparer.scala:385)
-	at dotty.tools.dotc.core.TypeComparer.recur(TypeComparer.scala:1279)
-	at dotty.tools.dotc.core.TypeComparer.secondTry$1(TypeComparer.scala:447)
-	at dotty.tools.dotc.core.TypeComparer.firstTry$1(TypeComparer.scala:385)
-	at dotty.tools.dotc.core.TypeComparer.recur(TypeComparer.scala:1279)
-	at dotty.tools.dotc.core.TypeComparer.isSubType(TypeComparer.scala:187)
-	at dotty.tools.dotc.core.TypeComparer.isSubType(TypeComparer.scala:197)
-	at dotty.tools.dotc.core.TypeComparer.isSub(TypeComparer.scala:199)
-	at dotty.tools.dotc.core.ConstraintHandling.op$proxy6$1(ConstraintHandling.scala:221)
-	at dotty.tools.dotc.core.ConstraintHandling.isSubTypeWhenFrozen(ConstraintHandling.scala:221)
-	at dotty.tools.dotc.core.ConstraintHandling.isSubTypeWhenFrozen$(ConstraintHandling.scala:26)
-	at dotty.tools.dotc.core.TypeComparer.isSubTypeWhenFrozen(TypeComparer.scala:30)
-	at dotty.tools.dotc.core.TypeComparer$.isSubTypeWhenFrozen(TypeComparer.scala:2648)
-	at dotty.tools.dotc.core.Types$Type.frozen_$less$colon$less(Types.scala:1023)
-	at dotty.tools.dotc.core.Types$TypeBounds.$amp(Types.scala:4720)
-	at dotty.tools.dotc.core.Types$TypeBounds.$amp(Types.scala:4730)
-	at dotty.tools.dotc.core.Types$Type.recoverable_$amp(Types.scala:1143)
-	at dotty.tools.dotc.core.Types$Type.goRefined$1(Types.scala:771)
-	at dotty.tools.dotc.core.Types$Type.go$1(Types.scala:690)
-	at dotty.tools.dotc.core.Types$Type.findMember(Types.scala:857)
-	at dotty.tools.dotc.core.Types$Type.memberBasedOnFlags(Types.scala:654)
-	at dotty.tools.dotc.core.Types$Type.member(Types.scala:638)
-	at dotty.tools.dotc.core.TypeComparer.hasMatchingMember(TypeComparer.scala:1742)
-	at dotty.tools.dotc.core.TypeComparer.compareRefinedSlow$1(TypeComparer.scala:583)
-	at dotty.tools.dotc.core.TypeComparer.compareRefined$1(TypeComparer.scala:599)
-	at dotty.tools.dotc.core.TypeComparer.thirdTry$1(TypeComparer.scala:605)
-	at dotty.tools.dotc.core.TypeComparer.secondTry$1(TypeComparer.scala:397)
-	at dotty.tools.dotc.core.TypeComparer.firstTry$1(TypeComparer.scala:385)
-	at dotty.tools.dotc.core.TypeComparer.recur(TypeComparer.scala:1279)
-	at dotty.tools.dotc.core.TypeComparer.secondTry$1(TypeComparer.scala:447)
-	at dotty.tools.dotc.core.TypeComparer.firstTry$1(TypeComparer.scala:385)
-	at dotty.tools.dotc.core.TypeComparer.recur(TypeComparer.scala:1279)
-	at dotty.tools.dotc.core.TypeComparer.isSubType(TypeComparer.scala:187)
-	at dotty.tools.dotc.core.TypeComparer.isSubType(TypeComparer.scala:197)
-	at dotty.tools.dotc.core.TypeComparer.isSub(TypeComparer.scala:199)
-	at dotty.tools.dotc.core.ConstraintHandling.op$proxy6$1(ConstraintHandling.scala:221)
-	at dotty.tools.dotc.core.ConstraintHandling.isSubTypeWhenFrozen(ConstraintHandling.scala:221)
-	at dotty.tools.dotc.core.ConstraintHandling.isSubTypeWhenFrozen$(ConstraintHandling.scala:26)
-	at dotty.tools.dotc.core.TypeComparer.isSubTypeWhenFrozen(TypeComparer.scala:30)
-	at dotty.tools.dotc.core.TypeComparer$.isSubTypeWhenFrozen(TypeComparer.scala:2648)
-	at dotty.tools.dotc.core.Types$Type.frozen_$less$colon$less(Types.scala:1023)
-	at dotty.tools.dotc.core.Types$TypeBounds.$amp(Types.scala:4720)
-	at dotty.tools.dotc.core.Types$TypeBounds.$amp(Types.scala:4730)
-	at dotty.tools.dotc.core.Types$Type.recoverable_$amp(Types.scala:1143)
-	at dotty.tools.dotc.core.Types$Type.goRefined$1(Types.scala:771)
-	at dotty.tools.dotc.core.Types$Type.go$1(Types.scala:690)
-	at dotty.tools.dotc.core.Types$Type.findMember(Types.scala:857)
-	at dotty.tools.dotc.core.Types$Type.memberBasedOnFlags(Types.scala:654)
-	at dotty.tools.dotc.core.Types$Type.member(Types.scala:638)
-	at dotty.tools.dotc.core.TypeComparer.hasMatchingMember(TypeComparer.scala:1742)
-	at dotty.tools.dotc.core.TypeComparer.compareRefinedSlow$1(TypeComparer.scala:583)
-	at dotty.tools.dotc.core.TypeComparer.compareRefined$1(TypeComparer.scala:599)
-	at dotty.tools.dotc.core.TypeComparer.thirdTry$1(TypeComparer.scala:605)
-	at dotty.tools.dotc.core.TypeComparer.secondTry$1(TypeComparer.scala:503)
-	at dotty.tools.dotc.core.TypeComparer.firstTry$1(TypeComparer.scala:385)
-	at dotty.tools.dotc.core.TypeComparer.recur(TypeComparer.scala:1279)
-	at dotty.tools.dotc.core.TypeComparer.isSubType(TypeComparer.scala:187)
-	at dotty.tools.dotc.core.TypeComparer.isSubType(TypeComparer.scala:197)
-	at dotty.tools.dotc.core.TypeComparer.isSub(TypeComparer.scala:199)
-	at dotty.tools.dotc.core.ConstraintHandling.op$proxy6$1(ConstraintHandling.scala:221)
-	at dotty.tools.dotc.core.ConstraintHandling.isSubTypeWhenFrozen(ConstraintHandling.scala:221)
-	at dotty.tools.dotc.core.ConstraintHandling.isSubTypeWhenFrozen$(ConstraintHandling.scala:26)
-	at dotty.tools.dotc.core.TypeComparer.isSubTypeWhenFrozen(TypeComparer.scala:30)
-	at dotty.tools.dotc.core.TypeComparer.dropIfSuper(TypeComparer.scala:2116)
-	at dotty.tools.dotc.core.TypeComparer.glb(TypeComparer.scala:1981)
-	at dotty.tools.dotc.core.TypeComparer$.glb(TypeComparer.scala:2676)
-	at dotty.tools.dotc.core.Types$Type.$amp(Types.scala:1119)
-	at dotty.tools.dotc.core.ConstraintHandling.$anonfun$3(ConstraintHandling.scala:107)
-	at dotty.tools.dotc.reporting.TraceSyntax.doTrace(trace.scala:85)
-	at dotty.tools.dotc.reporting.TraceSyntax.inline$doTrace(trace.scala:61)
-	at dotty.tools.dotc.reporting.TraceSyntax.inline$doTrace$(trace.scala:23)
-	at dotty.tools.dotc.reporting.trace$force$.inline$doTrace(trace.scala:14)
-	at dotty.tools.dotc.core.ConstraintHandling.addOneBound(ConstraintHandling.scala:107)
-	at dotty.tools.dotc.core.ConstraintHandling.addOneBound$(ConstraintHandling.scala:26)
-	at dotty.tools.dotc.core.ProperGadtConstraint.addOneBound(GadtConstraint.scala:103)
-	at dotty.tools.dotc.core.ConstraintHandling.$anonfun$9$$anonfun$2(ConstraintHandling.scala:177)
-	at dotty.tools.dotc.reporting.TraceSyntax.doTrace(trace.scala:85)
-	at dotty.tools.dotc.reporting.TraceSyntax.inline$doTrace(trace.scala:61)
-	at dotty.tools.dotc.reporting.TraceSyntax.inline$doTrace$(trace.scala:23)
-	at dotty.tools.dotc.reporting.trace$force$.inline$doTrace(trace.scala:14)
-	at dotty.tools.dotc.core.ConstraintHandling.$anonfun$5(ConstraintHandling.scala:177)
-	at scala.collection.immutable.List.forall(List.scala:386)
-	at dotty.tools.dotc.core.ConstraintHandling.addLess(ConstraintHandling.scala:177)
-	at dotty.tools.dotc.core.ConstraintHandling.addLess$(ConstraintHandling.scala:26)
-	at dotty.tools.dotc.core.ProperGadtConstraint.addLess(GadtConstraint.scala:103)
-	at dotty.tools.dotc.core.ProperGadtConstraint.addBound$$anonfun$2(GadtConstraint.scala:512)
-	at dotty.tools.dotc.reporting.TraceSyntax.doTrace(trace.scala:85)
-	at dotty.tools.dotc.reporting.TraceSyntax.inline$doTrace(trace.scala:61)
-	at dotty.tools.dotc.reporting.TraceSyntax.inline$doTrace$(trace.scala:23)
-	at dotty.tools.dotc.reporting.trace$force$.inline$doTrace(trace.scala:14)
-	at dotty.tools.dotc.core.ProperGadtConstraint.addBound(GadtConstraint.scala:512)
-	at dotty.tools.dotc.core.ProperGadtConstraint.addUpperBound$3$$anonfun$3(GadtConstraint.scala:400)
-	at dotty.tools.dotc.reporting.TraceSyntax.doTrace(trace.scala:85)
-	at dotty.tools.dotc.reporting.TraceSyntax.inline$doTrace(trace.scala:61)
-	at dotty.tools.dotc.reporting.TraceSyntax.inline$doTrace$(trace.scala:23)
-	at dotty.tools.dotc.reporting.trace$force$.inline$doTrace(trace.scala:14)
-	at dotty.tools.dotc.core.ProperGadtConstraint.addUpperBound$4(GadtConstraint.scala:400)
-	at dotty.tools.dotc.core.ProperGadtConstraint.addToConstraint$$anonfun$1(GadtConstraint.scala:410)
-	at scala.collection.immutable.Set$Set2.forall(Set.scala:207)
-	at dotty.tools.dotc.core.ProperGadtConstraint.addToConstraint(GadtConstraint.scala:410)
-	at dotty.tools.dotc.core.PatternTypeConstrainer.constrainTypeMembers$1(PatternTypeConstrainer.scala:122)
-	at dotty.tools.dotc.core.PatternTypeConstrainer.tpMemOk$1(PatternTypeConstrainer.scala:184)
-	at dotty.tools.dotc.core.PatternTypeConstrainer.constrainPatternType$$anonfun$2(PatternTypeConstrainer.scala:209)
-	at dotty.tools.dotc.reporting.TraceSyntax.doTrace(trace.scala:85)
-	at dotty.tools.dotc.reporting.TraceSyntax.inline$doTrace(trace.scala:61)
-	at dotty.tools.dotc.reporting.TraceSyntax.inline$doTrace$(trace.scala:23)
-	at dotty.tools.dotc.reporting.trace$force$.inline$doTrace(trace.scala:14)
-	at dotty.tools.dotc.core.PatternTypeConstrainer.constrainPatternType(PatternTypeConstrainer.scala:77)
-	at dotty.tools.dotc.core.PatternTypeConstrainer.constrainPatternType$(PatternTypeConstrainer.scala:15)
-	at dotty.tools.dotc.core.TypeComparer.constrainPatternType(TypeComparer.scala:30)
-	at dotty.tools.dotc.core.TypeComparer$.constrainPatternType(TypeComparer.scala:2730)
-	at dotty.tools.dotc.typer.Typer.handlePattern$1(Typer.scala:857)
-	at dotty.tools.dotc.typer.Typer.typedTyped$$anonfun$3(Typer.scala:871)
-	at dotty.tools.dotc.typer.Typer.cases$1(Typer.scala:793)
-	at dotty.tools.dotc.typer.Typer.typedTyped(Typer.scala:873)
-	at dotty.tools.dotc.typer.Typer.typedUnnamed$1(Typer.scala:2657)
-	at dotty.tools.dotc.typer.Typer.typedUnadapted(Typer.scala:2714)
-	at dotty.tools.dotc.typer.Typer.typed(Typer.scala:2779)
-	at dotty.tools.dotc.typer.Typer.typed(Typer.scala:2783)
-	at dotty.tools.dotc.typer.Typer.typedBind(Typer.scala:1981)
-	at dotty.tools.dotc.typer.Typer.typedNamed$1(Typer.scala:2623)
-	at dotty.tools.dotc.typer.Typer.typedUnadapted(Typer.scala:2713)
-	at dotty.tools.dotc.typer.Typer.typed(Typer.scala:2779)
-	at dotty.tools.dotc.typer.Typer.typed(Typer.scala:2783)
-	at dotty.tools.dotc.typer.Typer.cases$1(Typer.scala:799)
-	at dotty.tools.dotc.typer.Typer.typedTyped(Typer.scala:873)
-	at dotty.tools.dotc.typer.Typer.typedUnnamed$1(Typer.scala:2657)
-	at dotty.tools.dotc.typer.Typer.typedUnadapted(Typer.scala:2714)
-	at dotty.tools.dotc.typer.Typer.typed(Typer.scala:2779)
-	at dotty.tools.dotc.typer.Typer.typed(Typer.scala:2783)
-	at dotty.tools.dotc.typer.Typer.typedPattern(Typer.scala:2903)
-	at dotty.tools.dotc.typer.Typer.typedCase(Typer.scala:1606)
-	at dotty.tools.dotc.typer.Typer.typedCases$$anonfun$1(Typer.scala:1536)
-	at dotty.tools.dotc.core.Decorators$ListDecorator$.loop$1(Decorators.scala:92)
-	at dotty.tools.dotc.core.Decorators$ListDecorator$.mapconserve$extension(Decorators.scala:108)
-	at dotty.tools.dotc.typer.Typer.typedCases(Typer.scala:1538)
-	at dotty.tools.dotc.typer.Typer.$anonfun$21(Typer.scala:1528)
-	at dotty.tools.dotc.typer.Applications.harmonic(Applications.scala:2134)
-	at dotty.tools.dotc.typer.Applications.harmonic$(Applications.scala:303)
-	at dotty.tools.dotc.typer.Typer.harmonic(Typer.scala:102)
-	at dotty.tools.dotc.typer.Typer.typedMatchFinish(Typer.scala:1528)
-	at dotty.tools.dotc.typer.Typer.typedMatch(Typer.scala:1484)
-	at dotty.tools.dotc.typer.Typer.typedUnnamed$1(Typer.scala:2666)
-	at dotty.tools.dotc.typer.Typer.typedUnadapted(Typer.scala:2714)
-	at dotty.tools.dotc.typer.Typer.typed(Typer.scala:2779)
-	at dotty.tools.dotc.typer.Typer.typed(Typer.scala:2783)
-	at dotty.tools.dotc.typer.Typer.typedExpr(Typer.scala:2899)
-	at dotty.tools.dotc.typer.Typer.$anonfun$35(Typer.scala:2136)
-	at dotty.tools.dotc.typer.PrepareInlineable$.dropInlineIfError(PrepareInlineable.scala:225)
-	at dotty.tools.dotc.typer.Typer.typedDefDef(Typer.scala:2136)
-	at dotty.tools.dotc.typer.Typer.typedNamed$1(Typer.scala:2629)
-	at dotty.tools.dotc.typer.Typer.typedUnadapted(Typer.scala:2713)
-	at dotty.tools.dotc.typer.Typer.typed(Typer.scala:2779)
-	at dotty.tools.dotc.typer.Typer.typed(Typer.scala:2783)
-	at dotty.tools.dotc.typer.Typer.traverse$1(Typer.scala:2805)
-	at dotty.tools.dotc.typer.Typer.typedStats(Typer.scala:2855)
-	at dotty.tools.dotc.typer.Typer.typedClassDef(Typer.scala:2282)
-	at dotty.tools.dotc.typer.Typer.typedTypeOrClassDef$2(Typer.scala:2640)
-	at dotty.tools.dotc.typer.Typer.typedNamed$1(Typer.scala:2644)
-	at dotty.tools.dotc.typer.Typer.typedUnadapted(Typer.scala:2713)
-	at dotty.tools.dotc.typer.Typer.typed(Typer.scala:2779)
-	at dotty.tools.dotc.typer.Typer.typed(Typer.scala:2783)
-	at dotty.tools.dotc.typer.Typer.traverse$1(Typer.scala:2805)
-	at dotty.tools.dotc.typer.Typer.typedStats(Typer.scala:2855)
-	at dotty.tools.dotc.typer.Typer.typedPackageDef(Typer.scala:2434)
-	at dotty.tools.dotc.typer.Typer.typedUnnamed$1(Typer.scala:2685)
-	at dotty.tools.dotc.typer.Typer.typedUnadapted(Typer.scala:2714)
-	at dotty.tools.dotc.typer.Typer.typed(Typer.scala:2779)
-	at dotty.tools.dotc.typer.Typer.typed(Typer.scala:2783)
-	at dotty.tools.dotc.typer.Typer.typedExpr(Typer.scala:2899)
-	at dotty.tools.dotc.typer.FrontEnd.liftedTree1$1(FrontEnd.scala:79)
-	at dotty.tools.dotc.typer.FrontEnd.typeCheck$$anonfun$1(FrontEnd.scala:84)
-	at dotty.tools.dotc.typer.FrontEnd.monitor(FrontEnd.scala:43)
-	at dotty.tools.dotc.typer.FrontEnd.typeCheck(FrontEnd.scala:85)
-	at dotty.tools.dotc.typer.FrontEnd.runOn$$anonfun$3(FrontEnd.scala:120)
-	at scala.runtime.function.JProcedure1.apply(JProcedure1.java:15)
-	at scala.runtime.function.JProcedure1.apply(JProcedure1.java:10)
-	at scala.collection.immutable.List.foreach(List.scala:333)
-	at dotty.tools.dotc.typer.FrontEnd.runOn(FrontEnd.scala:120)
-	at dotty.tools.dotc.Run.runPhases$4$$anonfun$4(Run.scala:205)
-	at scala.runtime.function.JProcedure1.apply(JProcedure1.java:15)
-	at scala.runtime.function.JProcedure1.apply(JProcedure1.java:10)
-	at scala.collection.ArrayOps$.foreach$extension(ArrayOps.scala:1323)
-	at dotty.tools.dotc.Run.runPhases$5(Run.scala:215)
-	at dotty.tools.dotc.Run.compileUnits$$anonfun$1(Run.scala:223)
-	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.scala:18)
-	at dotty.tools.dotc.util.Stats$.maybeMonitored(Stats.scala:67)
-	at dotty.tools.dotc.Run.compileUnits(Run.scala:230)
-	at dotty.tools.dotc.Run.compileSources(Run.scala:166)
-	at dotty.tools.dotc.Run.compile(Run.scala:150)
-	at dotty.tools.dotc.Driver.doCompile(Driver.scala:39)
-	at dotty.tools.dotc.Driver.process(Driver.scala:198)
-	at dotty.tools.dotc.Driver.process(Driver.scala:166)
-	at dotty.tools.dotc.Driver.process(Driver.scala:178)
-	at dotty.tools.dotc.Driver.main(Driver.scala:208)
-	at dotty.tools.dotc.Main.main(Main.scala)
-[error] Nonzero exit code returned from runner: 1
-[error] (scala3-compiler / Compile / runMain) Nonzero exit code returned from runner: 1
-[error] Total time: 46 s, completed May 24, 2021, 12:27:39 AM
+[info] compiling 1 Scala source to /Users/linyxus/Develop/dotty/compiler/target/scala-3.0.0-RC1/classes ...
+[error] -- Error: /Users/linyxus/Develop/dotty/compiler/src/dotty/tools/dotc/config/Printers.scala:22:6 
+[error] 22 |      println("trying to print")
+[error]    |      ^
+[error]    |      Maximal number of successive inlines (32) exceeded,
+[error]    |      Maybe this is caused by a recursive inline method?
+[error]    |      You can use -Xmax-inlines to change the limit.
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error]    | This location contains code that was inlined from Printers.scala:22
+[error] one error found
+[error] one error found
+[error] (scala3-compiler / Compile / compileIncremental) Compilation failed
+[error] Total time: 0 s, completed May 26, 2021, 3:42:22 PM
 #+end_example

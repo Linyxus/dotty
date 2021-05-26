@@ -8,7 +8,7 @@ import Symbols._
 import Decorators._
 import Flags._
 import config.Config
-import config.Printers.typr
+import config.Printers.{typr, scopedGadt}
 import reporting.trace
 import StdNames.tpnme
 
@@ -104,7 +104,8 @@ trait ConstraintHandling {
           val saved = homogenizeArgs
           homogenizeArgs = Config.alignArgsInAnd
           try
-            if isUpper then oldBounds.derivedTypeBounds(lo, trace.force(s"merging $hi & $bound", constr, show = true) { hi & bound })
+            def tracePlease: Boolean = param.paramName.show startsWith "This"
+            if isUpper then oldBounds.derivedTypeBounds(lo, scopedGadt.traceScopeWhen(tracePlease) { trace.force(s"merging bound of ${param.paramName} $tracePlease <$hi, $bound>", constr, show = true) { hi & bound } })
             else oldBounds.derivedTypeBounds(lo | bound, hi)
           finally homogenizeArgs = saved
         val c1 = constraint.updateEntry(param, narrowedBounds)

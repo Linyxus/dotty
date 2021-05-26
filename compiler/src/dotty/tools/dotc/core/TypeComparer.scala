@@ -11,7 +11,7 @@ import collection.mutable
 import util.Stats
 import config.Config
 import config.Feature.migrateTo3
-import config.Printers.{constr, subtyping, gadts, matchTypes, noPrinter}
+import config.Printers.{constr, subtyping, gadts, matchTypes, noPrinter, scopedGadt}
 import TypeErasure.{erasedLub, erasedGlb}
 import TypeApplications._
 import Variances.{Variance, variancesConform}
@@ -213,7 +213,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
    *  code would have two extra parameters for each of the many calls that go from
    *  one sub-part of isSubType to another.
    */
-  protected def recur(tp1: Type, tp2: Type): Boolean = trace.force(s"isSubType ${traceInfo(tp1, tp2)}${approx.show}", subtyping) {
+  protected def recur(tp1: Type, tp2: Type): Boolean = trace(s"isSubType ${traceInfo(tp1, tp2)}${approx.show}", subtyping) {
     def monitoredIsSubType = {
       if (pendingSubTypes == null) {
         pendingSubTypes = util.HashSet[(Type, Type)]()
@@ -1960,7 +1960,7 @@ class TypeComparer(@constructorOnly initctx: Context) extends ConstraintHandling
   }
 
   /** The greatest lower bound of two types */
-  def glb(tp1: Type, tp2: Type): Type = /*>|>*/ trace.force(s"glb(${tp1}, ${tp2})", subtyping, show = true) /*<|<*/ {
+  def glb(tp1: Type, tp2: Type): Type = /*>|>*/ trace(s"glb(${tp1}, ${tp2})", scopedGadt, show = true) /*<|<*/ {
     if (tp1 eq tp2) tp1
     else if (!tp1.exists) tp2
     else if (!tp2.exists) tp1

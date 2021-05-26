@@ -1,9 +1,29 @@
 package dotty.tools.dotc.config
 
+import util.DynamicVariable
+
 object Printers {
 
   class Printer {
     def println(msg: => String): Unit = System.out.println(msg)
+  }
+
+  class ScopePrinter extends Printer {
+    private val inScope: DynamicVariable[Boolean] = new DynamicVariable(false)
+
+    def traceScope[T](body: => T): T =
+      inScope.withValue(true) { body }
+
+    def traceScopeWhen[T](cond: Boolean)(body: => T): T =
+      if cond then traceScope { body }
+      else body
+
+    override def println(msg: => String): Unit =
+      println("trying to print")
+      if inScope.value then
+        System.out.println(msg)
+      else
+        ()
   }
 
   object noPrinter extends Printer {
@@ -47,4 +67,6 @@ object Printers {
   val typr = noPrinter
   val unapp = noPrinter
   val variances = noPrinter
+
+  val scopedGadt = new ScopePrinter
 }
