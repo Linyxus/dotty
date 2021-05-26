@@ -780,6 +780,7 @@ class Typer extends Namer
     }
 
   def typedTyped(tree: untpd.Typed, pt: Type)(using Context): Tree = {
+    println(i"typedTyped($tree, $pt)")
 
     /*  Handles three cases:
      *  @param  ifPat    how to handle a pattern (_: T)
@@ -1577,6 +1578,7 @@ class Typer extends Namer
 
   /** Type a case. */
   def typedCase(tree: untpd.CaseDef, sel: Tree, wideSelType: Type, pt: Type)(using Context): CaseDef = {
+    println(i"typedCase(${tree.pat}, $sel, $wideSelType, $pt)")
     val originalCtx = ctx
     val gadtCtx: Context = ctx.fresh.setFreshGADTBounds
 
@@ -1603,6 +1605,7 @@ class Typer extends Namer
         gadtCtx.gadt.narrowScrutTp_=(null)
     }
 
+    println(i"typedPattern(${tree.pat}, ${sel.tpe})")
     val pat1 = typedPattern(tree.pat, wideSelType)(using gadtCtx)
     caseRest(pat1)(
       using Nullables.caseContext(sel, pat1)(

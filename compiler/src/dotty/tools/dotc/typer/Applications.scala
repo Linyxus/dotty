@@ -844,7 +844,6 @@ trait Applications extends Compatibility {
    *  Block node.
    */
   def typedApply(tree: untpd.Apply, pt: Type)(using Context): Tree = {
-
     def realApply(using Context): Tree = {
       val originalProto =
         new FunProto(tree.args, IgnoredProto(pt))(this, tree.applyKind)(using argCtx(tree))
@@ -1133,6 +1132,7 @@ trait Applications extends Compatibility {
       case _ => false
 
   def typedUnApply(tree: untpd.Apply, selType: Type)(using Context): Tree = {
+    println(i"typedUnApply($tree, $selType)")
     record("typedUnApply")
     val Apply(qual, args) = tree
     if !ctx.mode.is(Mode.InTypeTest) then
@@ -1259,10 +1259,12 @@ trait Applications extends Compatibility {
 
     def fromScala2x = unapplyFn.symbol.exists && (unapplyFn.symbol.owner is Scala2x)
 
+    println(i"*** unapplyFn = ${unapplyFn}")
+    println(i"*** unapplyFn.tpe.widen = ${unapplyFn.tpe.widen}")
     unapplyFn.tpe.widen match {
       case mt: MethodType if mt.paramInfos.length == 1 =>
         val unapplyArgType = mt.paramInfos.head
-        unapp.println(i"unapp arg tpe = $unapplyArgType, pt = $selType")
+        println(i"unapp arg tpe = $unapplyArgType, pt = $selType")
         val ownType =
           if (selType <:< unapplyArgType) {
             unapp.println(i"case 1 $unapplyArgType ${ctx.typerState.constraint}")
@@ -1273,12 +1275,14 @@ trait Applications extends Compatibility {
             // We ignore whether constraining the pattern succeeded.
             // Constraining only fails if the pattern cannot possibly match,
             // but useless pattern checks detect more such cases, so we simply rely on them instead.
+            println("*** Applications : calling constrainPatternType")
             withMode(Mode.GadtConstraintInference)(TypeComparer.constrainPatternType(unapplyArgType, selType))
             val patternBound = maximizeType(unapplyArgType, tree.span, fromScala2x)
             if (patternBound.nonEmpty) unapplyFn = addBinders(unapplyFn, patternBound)
             unapp.println(i"case 2 $unapplyArgType ${ctx.typerState.constraint}")
             unapplyArgType
           }
+        println(i"*** ownType = ${ownType}")
         val dummyArg = dummyTreeOfType(ownType)
         val unapplyApp = typedExpr(untpd.TypedSplice(Apply(unapplyFn, dummyArg :: Nil)))
         def unapplyImplicits(unapp: Tree): List[Tree] = {
