@@ -1,0 +1,51 @@
+#+name: ino
+#+begin_src elisp :cache yes
+  "weak-pair-map-classfile"
+#+end_src
+
+#+RESULTS[7bc4faf19f97693e6a351e082c244bae70db6962]: ino
+: weak-pair-map-classfile
+
+* Preamble
+
+  #+begin_src elisp :var ino=ino :results silent
+    (write-file (concat ino "-description.org"))
+  #+end_src
+
+  #+begin_src elisp :var ino=ino :results silent
+    (find-file (concat ino ".scala"))
+  #+end_src
+
+  #+begin_src elisp :var ino=ino :results silent
+    (save-excursion
+      (beginning-of-buffer)
+      (while (re-search-forward (rx "$" "ISSUE$") nil t)
+        (replace-match ino t t)))
+  #+end_src
+
+* weak-pair-map-classfile
+
+#+begin_src scala :tangle weak-pair-map-classfile.scala
+  def foo: java.lang.WeakPairMap$Pair$Weak$1 = ???
+#+end_src
+
+#+begin_src elisp
+  (sbt/run-until-output "scala3-compiler/compile")
+  (sbt/compile-file-for-output "issue/weak-pair-map-classfile.scala")
+#+end_src
+
+#+RESULTS:
+#+begin_example
+[info] running (fork) dotty.tools.dotc.Main -classpath /Users/linyxus/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.13.5/scala-library-2.13.5.jar:/Users/linyxus/Develop/dotty/library/../out/bootstrap/scala3-library-bootstrapped/scala-3.0.0-RC2/scala3-library_3.0.0-RC2-3.0.0-RC2-bin-SNAPSHOT.jar -color:never issue/weak-pair-map-classfile.scala
+error while loading WeakPairMap$Pair$Weak$1,
+class file /modules/java.base/java/lang/WeakPairMap$Pair$Weak$1.class is broken, reading aborted with class java.util.NoSuchElementException
+key not found: K2
+-- [E008] Not Found Error: issue/weak-pair-map-classfile.scala:1:19 ------------------------------------------------------------------------------------------------------------------------------------------
+1 |def foo: java.lang.WeakPairMap$Pair$Weak$1 = ???
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |         type WeakPairMap$Pair$Weak$1 is not a member of java.lang - did you mean lang.WeakPairMap$Pair$Weak$1?
+2 errors found
+[error] Nonzero exit code returned from runner: 1
+[error] (scala3-compiler / Compile / runMain) Nonzero exit code returned from runner: 1
+[error] Total time: 3 s, completed May 26, 2021, 2:36:49 PM
+#+end_example

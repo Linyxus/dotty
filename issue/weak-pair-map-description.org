@@ -1,0 +1,823 @@
+#+name: ino
+#+begin_src elisp :cache yes
+  "weak-pair-map"
+#+end_src
+
+#+RESULTS[8d7d0007abc874c7b7d4aa834ce8bd4d46d79857]: ino
+: weak-pair-map
+
+* Preamble
+
+  #+begin_src elisp :var ino=ino :results silent
+    (write-file (concat ino "-description.org"))
+  #+end_src
+
+  #+begin_src elisp :var ino=ino :results silent
+    (find-file (concat ino ".scala"))
+  #+end_src
+
+  #+begin_src elisp :var ino=ino :results silent
+    (save-excursion
+      (beginning-of-buffer)
+      (while (re-search-forward (rx "$" "ISSUE$") nil t)
+        (replace-match ino t t)))
+  #+end_src
+
+* weak-pair-map
+
+#+begin_src scala :tangle weak-pair-map.scala
+  package scala
+  import annotation.showAsInfix
+  import compiletime._
+  
+  /** Tuple of arbitrary arity */
+  sealed trait Tuple extends Product {
+    import Tuple._
+  
+    /** Create a copy this tuple as an Array */
+    inline def toArray: Array[Object] =
+      runtime.Tuples.toArray(this)
+  
+    /** Create a copy this tuple as a List */
+    inline def toList: List[Union[this.type]] =
+      this.productIterator.toList
+        .asInstanceOf[List[Union[this.type]]]
+  
+    /** Create a copy this tuple as an IArray */
+    inline def toIArray: IArray[Object] =
+      runtime.Tuples.toIArray(this)
+  
+    /** Return a new tuple by prepending the element to `this` tuple.
+     ,*  This operation is O(this.size)
+     ,*/
+    inline def *: [H, This >: this.type <: Tuple] (x: H): H *: This =
+      runtime.Tuples.cons(x, this).asInstanceOf[H *: This]
+  
+    /** Return a new tuple by concatenating `this` tuple with `that` tuple.
+     ,*  This operation is O(this.size + that.size)
+     ,*/
+    inline def ++ [This >: this.type <: Tuple](that: Tuple): Concat[This, that.type] =
+      runtime.Tuples.concat(this, that).asInstanceOf[Concat[This, that.type]]
+  
+    /** Return the size (or arity) of the tuple */
+    inline def size[This >: this.type <: Tuple]: Size[This] =
+      runtime.Tuples.size(this).asInstanceOf[Size[This]]
+  
+    /** Given two tuples, `(a1, ..., an)` and `(a1, ..., an)`, returns a tuple
+     ,*  `((a1, b1), ..., (an, bn))`. If the two tuples have different sizes,
+     ,*  the extra elements of the larger tuple will be disregarded.
+     ,*  The result is typed as `((A1, B1), ..., (An, Bn))` if at least one of the
+     ,*  tuple types has a `EmptyTuple` tail. Otherwise the result type is
+     ,*  `(A1, B1) *: ... *: (Ai, Bi) *: Tuple`
+     ,*/
+    inline def zip[This >: this.type <: Tuple, T2 <: Tuple](t2: T2): Zip[This, T2] =
+      runtime.Tuples.zip(this, t2).asInstanceOf[Zip[This, T2]]
+  
+    /** Called on a tuple `(a1, ..., an)`, returns a new tuple `(f(a1), ..., f(an))`.
+     ,*  The result is typed as `(F[A1], ..., F[An])` if the tuple type is fully known.
+     ,*  If the tuple is of the form `a1 *: ... *: Tuple` (that is, the tail is not known
+     ,*  to be the cons type.
+     ,*/
+    inline def map[F[_]](f: [t] => t => F[t]): Map[this.type, F] =
+      runtime.Tuples.map(this, f).asInstanceOf[Map[this.type, F]]
+  
+    /** Given a tuple `(a1, ..., am)`, returns the tuple `(a1, ..., an)` consisting
+     ,*  of its first n elements.
+     ,*/
+    inline def take[This >: this.type <: Tuple](n: Int): Take[This, n.type] =
+      runtime.Tuples.take(this, n).asInstanceOf[Take[This, n.type]]
+  
+  
+    /** Given a tuple `(a1, ..., am)`, returns the tuple `(an+1, ..., am)` consisting
+     ,*  all its elements except the first n ones.
+     ,*/
+    inline def drop[This >: this.type <: Tuple](n: Int): Drop[This, n.type] =
+      runtime.Tuples.drop(this, n).asInstanceOf[Drop[This, n.type]]
+  
+    /** Given a tuple `(a1, ..., am)`, returns a pair of the tuple `(a1, ..., an)`
+     ,*  consisting of the first n elements, and the tuple `(an+1, ..., am)` consisting
+     ,*  of the remaining elements.
+     ,*/
+    inline def splitAt[This >: this.type <: Tuple](n: Int): Split[This, n.type] =
+      runtime.Tuples.splitAt(this, n).asInstanceOf[Split[This, n.type]]
+  }
+  
+  object Tuple {
+  
+    /** Type of the head of a tuple */
+    type Head[X <: NonEmptyTuple] = X match {
+      case x *: _ => x
+    }
+  
+    /** Type of the tail of a tuple */
+    type Tail[X <: NonEmptyTuple] <: Tuple = X match {
+      case _ *: xs => xs
+    }
+  
+    /** Type of the concatenation of two tuples */
+    type Concat[X <: Tuple, +Y <: Tuple] <: Tuple = X match {
+      case EmptyTuple => Y
+      case x1 *: xs1 => x1 *: Concat[xs1, Y]
+    }
+  
+    /** Type of the element a position N in the tuple X */
+    type Elem[X <: Tuple, N <: Int] = X match {
+      case x *: xs =>
+        N match {
+          case 0 => x
+          case S[n1] => Elem[xs, n1]
+        }
+    }
+  
+    /** Literal constant Int size of a tuple */
+    type Size[X <: Tuple] <: Int = X match {
+      case EmptyTuple => 0
+      case x *: xs => S[Size[xs]]
+    }
+  
+    /** Fold a tuple `(T1, ..., Tn)` into `F[T1, F[... F[Tn, Z]...]]]` */
+    type Fold[T <: Tuple, Z, F[_, _]] = T match
+      case EmptyTuple => Z
+      case h *: t => F[h, Fold[t, Z, F]]
+  
+    /** Converts a tuple `(T1, ..., Tn)` to `(F[T1], ..., F[Tn])` */
+    type Map[Tup <: Tuple, F[_]] <: Tuple = Tup match {
+      case EmptyTuple => EmptyTuple
+      case h *: t => F[h] *: Map[t, F]
+    }
+  
+    /** Converts a tuple `(T1, ..., Tn)` to a flattened `(..F[T1], ..., ..F[Tn])` */
+    type FlatMap[Tup <: Tuple, F[_] <: Tuple] <: Tuple = Tup match {
+      case EmptyTuple => EmptyTuple
+      case h *: t => Concat[F[h], FlatMap[t, F]]
+    }
+  
+    /** Filters out those members of the tuple for which the predicate `P` returns `false`.
+     ,*  A predicate `P[X]` is a type that can be either `true` or `false`. For example:
+     ,*  ```scala
+     ,*  type IsString[x] = x match {
+     ,*    case String => true
+     ,*    case _ => false
+     ,*  }
+     ,*  Filter[(1, "foo", 2, "bar"), IsString] =:= ("foo", "bar")
+     ,*  ```
+     ,*  @syntax markdown
+     ,*/
+    type Filter[Tup <: Tuple, P[_] <: Boolean] <: Tuple = Tup match {
+      case EmptyTuple => EmptyTuple
+      case h *: t => P[h] match {
+        case true => h *: Filter[t, P]
+        case false => Filter[t, P]
+      }
+    }
+  
+    /** Given two tuples, `A1 *: ... *: An * At` and `B1 *: ... *: Bn *: Bt`
+     ,*  where at least one of `At` or `Bt` is `EmptyTuple` or `Tuple`,
+     ,*  returns the tuple type `(A1, B1) *: ... *: (An, Bn) *: Ct`
+     ,*  where `Ct` is `EmptyTuple` if `At` or `Bt` is `EmptyTuple`, otherwise `Ct` is `Tuple`.
+     ,*/
+    type Zip[T1 <: Tuple, T2 <: Tuple] <: Tuple = (T1, T2) match {
+      case (h1 *: t1, h2 *: t2) => (h1, h2) *: Zip[t1, t2]
+      case (EmptyTuple, _) => EmptyTuple
+      case (_, EmptyTuple) => EmptyTuple
+      case _ => Tuple
+    }
+  
+    /** Converts a tuple `(F[T1], ..., F[Tn])` to `(T1,  ... Tn)` */
+    type InverseMap[X <: Tuple, F[_]] <: Tuple = X match {
+      case F[x] *: t => x *: InverseMap[t, F]
+      case EmptyTuple => EmptyTuple
+    }
+  
+    /** Implicit evidence. IsMappedBy[F][X] is present in the implicit scope iff
+     ,*  X is a tuple for which each element's type is constructed via `F`. E.g.
+     ,*  (F[A1], ..., F[An]), but not `(F[A1], B2, ..., F[An])` where B2 does not
+     ,*  have the shape of `F[A]`.
+     ,*/
+    type IsMappedBy[F[_]] = [X <: Tuple] =>> X =:= Map[InverseMap[X, F], F]
+  
+    /** Transforms a tuple `(T1, ..., Tn)` into `(T1, ..., Ti)`. */
+    type Take[T <: Tuple, N <: Int] <: Tuple = N match {
+      case 0 => EmptyTuple
+      case S[n1] => T match {
+        case EmptyTuple => EmptyTuple
+        case x *: xs => x *: Take[xs, n1]
+      }
+    }
+  
+    /** Transforms a tuple `(T1, ..., Tn)` into `(Ti+1, ..., Tn)`. */
+    type Drop[T <: Tuple, N <: Int] <: Tuple = N match {
+      case 0 => T
+      case S[n1] => T match {
+        case EmptyTuple => EmptyTuple
+        case x *: xs => Drop[xs, n1]
+      }
+    }
+  
+    /** Splits a tuple (T1, ..., Tn) into a pair of two tuples `(T1, ..., Ti)` and
+     ,* `(Ti+1, ..., Tn)`.
+     ,*/
+    type Split[T <: Tuple, N <: Int] = (Take[T, N], Drop[T, N])
+  
+    /** Given a tuple `(T1, ..., Tn)`, returns a union of its
+     ,*  member types: `T1 | ... | Tn`. Returns `Nothing` if the tuple is empty.
+     ,*/
+    type Union[T <: Tuple] = Fold[T, Nothing, [x, y] =>> x | y]
+  
+    /** Empty tuple */
+    def apply(): EmptyTuple = EmptyTuple
+  
+    /** Tuple with one element */
+    def apply[T](x: T): T *: EmptyTuple = Tuple1(x)
+  
+    /** Matches an empty tuple. */
+    def unapply(x: EmptyTuple): true = true
+  
+    /** Convert an array into a tuple of unknown arity and types */
+    def fromArray[T](xs: Array[T]): Tuple = {
+      val xs2 = xs match {
+        case xs: Array[Object] => xs
+        case xs => xs.map(_.asInstanceOf[Object])
+      }
+      runtime.Tuples.fromArray(xs2).asInstanceOf[Tuple]
+    }
+  
+    /** Convert an immutable array into a tuple of unknown arity and types */
+    def fromIArray[T](xs: IArray[T]): Tuple = {
+      val xs2: IArray[Object] = xs match {
+        case xs: IArray[Object] @unchecked => xs
+        case xs =>
+          // TODO support IArray.map
+          xs.asInstanceOf[Array[T]].map(_.asInstanceOf[Object]).asInstanceOf[IArray[Object]]
+      }
+      runtime.Tuples.fromIArray(xs2).asInstanceOf[Tuple]
+    }
+  
+    /** Convert a Product into a tuple of unknown arity and types */
+    def fromProduct(product: Product): Tuple =
+      runtime.Tuples.fromProduct(product)
+  
+    def fromProductTyped[P <: Product](p: P)(using m: scala.deriving.Mirror.ProductOf[P]): m.MirroredElemTypes =
+      runtime.Tuples.fromProduct(p).asInstanceOf[m.MirroredElemTypes]
+  }
+  
+  /** A tuple of 0 elements */
+  type EmptyTuple = EmptyTuple.type
+  
+  /** A tuple of 0 elements. */
+  object EmptyTuple extends Tuple {
+    override def productArity: Int = 0
+  
+    @throws(classOf[IndexOutOfBoundsException])
+    override def productElement(n: Int): Any =
+      throw new IndexOutOfBoundsException(n.toString())
+  
+    def canEqual(that: Any): Boolean = this == that
+  
+    override def toString(): String = "()"
+  }
+  
+  /** Tuple of arbitrary non-zero arity */
+  sealed trait NonEmptyTuple extends Tuple {
+    import Tuple._
+  
+    /** Get the i-th element of this tuple.
+     ,*  Equivalent to productElement but with a precise return type.
+     ,*/
+    inline def apply[This >: this.type <: NonEmptyTuple](n: Int): Elem[This, n.type] =
+      runtime.Tuples.apply(this, n).asInstanceOf[Elem[This, n.type]]
+  
+    /** Get the head of this tuple */
+    inline def head[This >: this.type <: NonEmptyTuple]: Head[This] =
+      runtime.Tuples.apply(this, 0).asInstanceOf[Head[This]]
+  
+    /** Get the tail of this tuple.
+     ,*  This operation is O(this.size)
+     ,*/
+    inline def tail[This >: this.type <: NonEmptyTuple]: Tail[This] =
+      runtime.Tuples.tail(this).asInstanceOf[Tail[This]]
+  
+  }
+  
+  @showAsInfix
+  sealed abstract class *:[+H, +T <: Tuple] extends NonEmptyTuple
+  
+  object *: {
+    def unapply[H, T <: Tuple](x: H *: T): (H, T) = (x.head, x.tail)
+  }
+#+end_src
+
+#+begin_src elisp
+  (sbt/run-until-output "scala3-compiler/compile")
+  (sbt/compile-file-for-output "issue/weak-pair-map.scala")
+#+end_src
+
+#+RESULTS:
+#+begin_example
+[info] running (fork) dotty.tools.dotc.Main -classpath /Users/linyxus/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.13.5/scala-library-2.13.5.jar:/Users/linyxus/Develop/dotty/library/../out/bootstrap/scala3-library-bootstrapped/scala-3.0.0-RC2/scala3-library_3.0.0-RC2-3.0.0-RC2-bin-SNAPSHOT.jar -color:never issue/weak-pair-map.scala
+[class] >> java.lang.Class
+[class] >> java.lang.invoke.TypeDescriptor
+[class] >> java.io.Serializable
+[class] >> java.lang.reflect.GenericDeclaration
+[class] >> java.lang.reflect.AnnotatedElement
+[class] >> java.lang.reflect.Type
+[class] >> java.lang.constant.Constable
+[class] >> java.lang.String
+[class] >> java.lang.CharSequence
+[class] >> java.lang.constant.ConstantDesc
+[class] >> scala.language
+[class] >> scala.reflect.package
+[class] >> scala.reflect.Typeable$package
+[class] >> scala.collection.package
+[class] >> scala.deprecated
+[class] >> scala.deprecatedInheritance
+[class] >> scala.annotation.meta.beanSetter
+[class] >> scala.annotation.meta.beanGetter
+[class] >> scala.annotation.meta.setter
+[class] >> scala.annotation.meta.getter
+[class] >> scala.annotation.meta.field
+[class] >> scala.collection.immutable.package
+[class] >> scala.annotation.implicitNotFound
+[class] >> scala.runtime.stdLibPatches.language
+[class] >> scala.Unit
+[class] >> scala.annotation.compileTimeOnly
+[class] >> scala.annotation.meta.companionMethod
+[class] >> scala.annotation.meta.companionClass
+[class] >> scala.compiletime.package
+[class] >> scala.Product
+[class] >> scala.Equals
+[class] >> scala.Array
+[class] >> scala.SerialVersionUID
+[class] >> scala.package
+[class] >> scala.annotation.migration
+[class] >> scala.Tuple$package
+[class] >> scala.IArray$package
+[class] >> scala.Predef
+[class] >> scala.inline
+[class] >> scala.deprecatedName
+[class] >> scala.annotation.meta.param
+[class] >> scala.annotation.elidable
+[class] >> scala.LowPriorityImplicits
+[class] >> scala.runtime.stdLibPatches.Predef
+[class] >> scala.annotation.internal.InlineParam
+[class] >> scala.annotation.Annotation
+[class] >> scala.Boolean
+[class] >> scala.LowPriorityImplicits2
+[class] >> java.lang.Cloneable
+[class] >> scala.annotation.internal.Body
+[class] >> scala.runtime.Tuples
+[class] >> scala.collection.immutable.List
+[class] >> scala.transient
+[class] >> scala.runtime.MatchCase
+[class] >> scala.annotation.showAsInfix
+[class] >> scala.annotation.StaticAnnotation
+[class] >> scala.annotation.internal.Child
+[class] >> scala.collection.immutable.AbstractSeq
+[class] >> scala.collection.immutable.LinearSeq
+[class] >> scala.collection.immutable.LinearSeqOps
+[class] >> scala.collection.StrictOptimizedLinearSeqOps
+[class] >> scala.collection.immutable.StrictOptimizedSeqOps
+[class] >> scala.collection.IterableFactoryDefaults
+[class] >> scala.collection.generic.DefaultSerializable
+[class] >> scala.collection.Iterator
+[class] >> scala.throws
+[class] >> scala.deprecatedOverriding
+[class] >> scala.collection.IterableOnce
+[class] >> scala.collection.IterableOnceOps
+[class] >> scala.collection.Iterable
+[class] >> scala.annotation.unchecked.uncheckedVariance
+[class] >> scala.collection.IterableOps
+[class] >> scala.collection.immutable.SeqOps
+[class] >> scala.collection.StrictOptimizedSeqOps
+[class] >> scala.collection.StrictOptimizedIterableOps
+[class] >> scala.collection.SeqOps
+[class] >> scala.collection.LinearSeqOps
+[class] >> scala.collection.immutable.Seq
+[class] >> scala.collection.LinearSeq
+[class] >> scala.collection.Seq
+[class] >> scala.Int
+[class] >> scala.PartialFunction
+[class] >> scala.Function1
+[class] >> scala.specialized
+[class] >> scala.annotation.unspecialized
+[class] >> scala.collection.immutable.Iterable
+[class] >> scala.collection.AbstractSeq
+[class] >> scala.collection.AbstractIterable
+[class] >> scala.annotation.internal.SourceFile
+[class] >> java.lang.Comparable
+[class] >> scala.collection.generic.package
+[class] >> scala.Tuple2
+[class] >> scala.Product2
+[class] >> scala.PolyFunction
+[class] >> scala.=:=
+[class] >> scala.<:<
+[class] >> scala.Tuple1
+[class] >> scala.Product1
+[class] >> scala.reflect.Manifest
+[class] >> scala.collection.immutable.Map
+[class] >> scala.reflect.OptManifest
+[class] >> scala.collection.immutable.Set
+[class] >> java.lang.IllegalArgumentException
+[class] >> java.lang.RuntimeException
+[class] >> java.lang.Exception
+[class] >> java.lang.Throwable
+[class] >> scala.math.Numeric
+[class] >> scala.math.PartiallyOrdered
+[class] >> java.lang.IndexOutOfBoundsException
+[class] >> scala.math.Ordered
+[class] >> scala.util.Left
+[class] >> scala.collection.immutable.Vector
+[class] >> java.lang.StringIndexOutOfBoundsException
+[class] >> java.lang.ArrayIndexOutOfBoundsException
+[class] >> scala.math.PartialOrdering
+[class] >> java.lang.UnsupportedOperationException
+[class] >> scala.util.Either
+[class] >> scala.math.Ordering
+[class] >> scala.collection.immutable.LazyList
+[class] >> scala.volatile
+[class] >> scala.annotation.tailrec
+[class] >> scala.math.Equiv
+[class] >> java.lang.ClassCastException
+[class] >> scala.collection.mutable.StringBuilder
+[class] >> java.lang.NullPointerException
+[class] >> scala.collection.immutable.Range
+[class] >> java.lang.Error
+[class] >> scala.math.Fractional
+[class] >> java.lang.NumberFormatException
+[class] >> scala.collection.immutable.Stream
+[class] >> scala.util.Right
+[class] >> scala.collection.BufferedIterator
+[class] >> scala.math.BigDecimal
+[class] >> scala.math.BigInt
+[class] >> java.lang.AbstractMethodError
+[class] >> java.lang.IncompatibleClassChangeError
+[class] >> java.lang.LinkageError
+[class] >> scala.collection.immutable.IndexedSeq
+[class] >> scala.collection.immutable.::
+[class] >> scala.math.Integral
+[class] >> java.util.NoSuchElementException
+[class] >> java.lang.InterruptedException
+==> collecting type members for java.lang?
+[class] >> java.lang.AbstractStringBuilder
+[class] >> java.lang.Appendable
+[class] >> java.lang.ApplicationShutdownHooks
+[class] >> java.lang.ArithmeticException
+[class] >> java.lang.ArrayStoreException
+[class] >> java.lang.AssertionError
+[class] >> java.lang.AssertionStatusDirectives
+[class] >> java.lang.AutoCloseable
+[class] >> java.lang.Boolean
+[class] >> java.lang.BootstrapMethodError
+[class] >> java.lang.Byte
+[class] >> java.lang.Number
+[class] >> java.lang.Character
+[class] >> java.lang.CharacterData
+[class] >> java.lang.CharacterData00
+[class] >> java.lang.CharacterData01
+[class] >> java.lang.CharacterData02
+[class] >> java.lang.CharacterData03
+[class] >> java.lang.CharacterData0E
+[class] >> java.lang.CharacterDataLatin1
+[class] >> java.lang.CharacterDataPrivateUse
+[class] >> java.lang.CharacterDataUndefined
+[class] >> java.lang.CharacterName
+[class] >> java.lang.ClassCircularityError
+[class] >> java.lang.ClassFormatError
+[class] >> java.lang.ClassLoader
+[class] >> java.lang.ClassNotFoundException
+[class] >> java.lang.ReflectiveOperationException
+[class] >> java.lang.ClassValue
+[class] >> java.lang.CloneNotSupportedException
+[class] >> java.lang.Compiler
+[class] >> java.lang.CompoundEnumeration
+[class] >> java.lang.ConditionalSpecialCasing
+[class] >> java.lang.Deprecated
+[class] >> scala.annotation.internal.AnnotationDefault
+[class] >> java.lang.annotation.ElementType
+[class] >> scala.annotation.ClassfileAnnotation
+[class] >> java.lang.annotation.Annotation
+[class] >> java.lang.Double
+[class] >> java.lang.Enum
+[class] >> java.lang.EnumConstantNotPresentException
+[class] >> java.lang.ExceptionInInitializerError
+[class] >> java.lang.FdLibm
+[class] >> java.lang.Float
+[class] >> java.lang.FunctionalInterface
+[class] >> java.lang.IllegalAccessError
+[class] >> java.lang.IllegalAccessException
+[class] >> java.lang.IllegalCallerException
+[class] >> java.lang.IllegalMonitorStateException
+[class] >> java.lang.IllegalStateException
+[class] >> java.lang.IllegalThreadStateException
+[class] >> java.lang.InheritableThreadLocal
+[class] >> java.lang.InstantiationError
+[class] >> java.lang.InstantiationException
+[class] >> java.lang.Integer
+[class] >> java.lang.InternalError
+[class] >> java.lang.VirtualMachineError
+[class] >> java.lang.Iterable
+[class] >> java.lang.LayerInstantiationException
+[class] >> java.lang.LiveStackFrame
+[class] >> java.lang.StackWalker
+[class] >> java.lang.StackWalker$.StackFrame
+[class] >> java.lang.LiveStackFrameInfo
+[class] >> java.lang.StackFrameInfo
+[class] >> java.lang.Long
+[class] >> java.lang.Math
+[class] >> java.lang.Module
+[class] >> java.lang.ModuleLayer
+[class] >> java.lang.NamedPackage
+[class] >> java.lang.NegativeArraySizeException
+[class] >> java.lang.NoClassDefFoundError
+[class] >> java.lang.NoSuchFieldError
+[class] >> java.lang.NoSuchFieldException
+[class] >> java.lang.NoSuchMethodError
+[class] >> java.lang.NoSuchMethodException
+[class] >> java.lang.OutOfMemoryError
+[class] >> java.lang.Override
+[class] >> java.lang.Package
+[class] >> java.lang.Process
+[class] >> java.lang.ProcessBuilder
+[class] >> java.lang.ProcessEnvironment
+[class] >> java.lang.ProcessHandle
+[class] >> java.lang.ProcessHandleImpl
+[class] >> java.lang.ProcessImpl
+[class] >> java.lang.PublicMethods
+[class] >> java.lang.Readable
+[class] >> java.lang.Record
+[class] >> java.lang.Runnable
+[class] >> java.lang.Runtime
+[class] >> java.lang.RuntimePermission
+[class] >> java.security.BasicPermission
+[class] >> java.security.Permission
+[class] >> java.security.Guard
+[class] >> java.lang.SafeVarargs
+[class] >> java.lang.SecurityException
+[class] >> java.lang.SecurityManager
+[class] >> java.lang.Short
+[class] >> java.lang.Shutdown
+[class] >> java.lang.StackOverflowError
+[class] >> java.lang.StackStreamFactory
+[class] >> java.lang.StackTraceElement
+[class] >> java.lang.StrictMath
+[class] >> java.lang.StringBuffer
+[class] >> java.lang.StringBuilder
+[class] >> java.lang.StringCoding
+[class] >> java.lang.StringConcatHelper
+[class] >> java.lang.StringLatin1
+[class] >> java.lang.StringUTF16
+[class] >> java.lang.SuppressWarnings
+[class] >> java.lang.System
+[class] >> java.lang.Terminator
+[class] >> java.lang.Thread
+[class] >> java.lang.ThreadDeath
+[class] >> java.lang.ThreadGroup
+[class] >> java.lang.Thread$.UncaughtExceptionHandler
+[class] >> java.lang.ThreadLocal
+[class] >> java.lang.TypeNotPresentException
+[class] >> java.lang.UnknownError
+[class] >> java.lang.UnsatisfiedLinkError
+[class] >> java.lang.UnsupportedClassVersionError
+[class] >> java.lang.VerifyError
+[class] >> java.lang.VersionProps
+[class] >> java.lang.Void
+[class] >> java.lang.WeakPairMap
+[class] >> java.lang.ApplicationShutdownHooks$1
+[class] >> java.lang.Byte$ByteCache
+[class] >> java.lang.CharSequence$1CharIterator
+[class] >> java.util.PrimitiveIterator
+[class] >> java.util.PrimitiveIterator$.OfInt
+[class] >> java.util.function.IntConsumer
+[class] >> java.lang.CharSequence$1CodePointIterator
+[class] >> java.lang.Character$CharacterCache
+[class] >> java.lang.Character$Subset
+[class] >> java.lang.Character$UnicodeBlock
+[class] >> java.lang.Character$.Subset
+[class] >> java.lang.Character$UnicodeScript
+[class] >> java.lang.Character$.UnicodeScript
+[class] >> java.lang.CharacterName$1
+[class] >> java.io.InputStream
+[class] >> java.io.Closeable
+[class] >> java.lang.Class$1
+[class] >> java.lang.Class$2
+[class] >> java.lang.Class$3
+[class] >> java.lang.Class$AnnotationData
+[class] >> java.lang.Class$Atomic
+[class] >> java.lang.Class$EnclosingMethodInfo
+[class] >> java.lang.Class$ReflectionData
+[class] >> java.lang.ClassLoader$1
+[class] >> java.lang.ClassLoader$ParallelLoaders
+[class] >> java.lang.ClassValue$ClassValueMap
+[class] >> java.lang.ClassValue$.Identity
+[class] >> java.lang.ClassValue$Entry
+[class] >> java.lang.ClassValue$Identity
+[class] >> java.lang.ClassValue$Version
+[class] >> java.lang.ConditionalSpecialCasing$Entry
+[class] >> java.lang.Enum$EnumDesc
+[class] >> java.lang.FdLibm$Cbrt
+[class] >> java.lang.FdLibm$Exp
+[class] >> java.lang.FdLibm$Hypot
+[class] >> java.lang.FdLibm$Pow
+[class] >> java.lang.Integer$IntegerCache
+[class] >> java.lang.LiveStackFrame$PrimitiveSlot
+[class] >> java.lang.LiveStackFrameInfo$PrimitiveSlot32
+[class] >> java.lang.LiveStackFrame$.PrimitiveSlot
+[class] >> java.lang.LiveStackFrameInfo$PrimitiveSlot64
+[class] >> java.lang.Long$LongCache
+[class] >> java.lang.Math$RandomNumberGeneratorHolder
+[class] >> java.lang.Module$1
+[class] >> jdk.internal.org.objectweb.asm.ClassVisitor
+[class] >> java.lang.Module$1DummyModuleInfo
+[class] >> java.lang.Module$2
+[class] >> java.lang.Module$ReflectionData
+[class] >> java.lang.ModuleLayer$Controller
+[class] >> java.lang.Package$1PackageInfoProxy
+[class] >> java.lang.Package$VersionInfo
+[class] >> java.lang.Process$1
+[class] >> java.util.concurrent.ForkJoinPool
+[class] >> java.util.concurrent.AbstractExecutorService
+[class] >> java.util.concurrent.ExecutorService
+[class] >> java.util.concurrent.Executor
+[class] >> java.util.concurrent.ForkJoinPool$.ManagedBlocker
+[class] >> java.lang.Process$PipeInputStream
+[class] >> java.io.FileInputStream
+[class] >> java.lang.ProcessBuilder$NullInputStream
+[class] >> java.lang.ProcessBuilder$NullOutputStream
+[class] >> java.io.OutputStream
+[class] >> java.io.Flushable
+[class] >> java.lang.ProcessBuilder$Redirect$1
+[class] >> java.lang.ProcessBuilder$.Redirect
+[class] >> java.lang.ProcessBuilder$Redirect$2
+[class] >> java.lang.ProcessBuilder$Redirect$3
+[class] >> java.lang.ProcessBuilder$Redirect$4
+[class] >> java.lang.ProcessBuilder$Redirect$5
+[class] >> java.lang.ProcessBuilder$Redirect$6
+[class] >> java.lang.ProcessBuilder$Redirect$Type
+[class] >> java.lang.ProcessBuilder$.Redirect$.Type
+[class] >> java.lang.ProcessBuilder$Redirect
+[class] >> java.lang.ProcessBuilder$RedirectPipeImpl
+[class] >> java.lang.ProcessEnvironment$ExternalData
+[class] >> java.lang.ProcessEnvironment$StringEntry
+[class] >> java.util.Map
+[class] >> java.lang.ProcessEnvironment$StringEntrySet$1
+[class] >> java.lang.ProcessEnvironment$StringEntrySet$2
+[class] >> java.lang.ProcessEnvironment$.Variable
+[class] >> java.lang.ProcessEnvironment$.ExternalData
+[class] >> java.lang.ProcessEnvironment$.Value
+[class] >> java.lang.ProcessEnvironment$StringEntrySet
+[class] >> java.lang.ProcessEnvironment$StringEnvironment
+[class] >> java.lang.ProcessEnvironment$StringKeySet$1
+[class] >> java.lang.ProcessEnvironment$StringKeySet
+[class] >> java.lang.ProcessEnvironment$StringValues$1
+[class] >> java.lang.ProcessEnvironment$StringValues
+[class] >> java.lang.ProcessEnvironment$Value
+[class] >> java.lang.ProcessEnvironment$Variable
+[class] >> java.lang.ProcessHandle$Info
+[class] >> java.lang.ProcessHandleImpl$1
+[class] >> java.lang.ProcessHandleImpl$ExitCompletion
+[class] >> java.lang.ProcessHandleImpl$Info
+[class] >> java.lang.ProcessHandle$.Info
+[class] >> java.lang.ProcessImpl$1
+[class] >> java.lang.ProcessImpl$DeferredCloseInputStream
+[class] >> java.lang.Process$.PipeInputStream
+[class] >> java.lang.ProcessImpl$DeferredCloseProcessPipeInputStream
+[class] >> java.io.BufferedInputStream
+[class] >> java.io.FilterInputStream
+[class] >> java.lang.ProcessImpl$LaunchMechanism
+[class] >> java.lang.ProcessImpl$.LaunchMechanism
+[class] >> java.lang.ProcessImpl$Platform
+[class] >> java.lang.ProcessImpl$.Platform
+[class] >> java.lang.ProcessImpl$ProcessPipeInputStream
+[class] >> java.lang.ProcessImpl$ProcessPipeOutputStream
+[class] >> java.io.BufferedOutputStream
+[class] >> java.io.FilterOutputStream
+[class] >> java.lang.PublicMethods$Key
+[class] >> java.lang.PublicMethods$MethodList
+[class] >> java.lang.Runtime$Version
+[class] >> java.lang.Runtime$.Version
+[class] >> java.lang.Runtime$VersionPattern
+[class] >> java.lang.SecurityManager$1
+[class] >> java.lang.SecurityManager$2
+[class] >> java.lang.Short$ShortCache
+[class] >> java.lang.Shutdown$Lock
+[class] >> java.lang.StackStreamFactory$1
+[class] >> java.lang.StackStreamFactory$AbstractStackWalker
+[class] >> java.lang.StackStreamFactory$CallerClassFinder$ClassBuffer
+[class] >> java.lang.StackStreamFactory$CallerClassFinder
+[class] >> java.lang.StackStreamFactory$FrameBuffer
+[class] >> java.lang.StackStreamFactory$LiveStackInfoTraverser$LiveStackFrameBuffer
+[class] >> java.lang.StackStreamFactory$LiveStackInfoTraverser
+[class] >> java.lang.StackStreamFactory$StackFrameTraverser$StackFrameBuffer
+[class] >> java.lang.StackStreamFactory$StackFrameTraverser
+[class] >> java.lang.StackStreamFactory$WalkerState
+[class] >> java.lang.StackStreamFactory$.WalkerState
+[class] >> java.lang.StackTraceElement$HashedModules
+[class] >> java.lang.StackWalker$ExtendedOption
+[class] >> java.lang.StackWalker$.ExtendedOption
+[class] >> java.lang.StackWalker$Option
+[class] >> java.lang.StackWalker$.Option
+[class] >> java.lang.StackWalker$StackFrame
+[class] >> java.lang.StrictMath$RandomNumberGeneratorHolder
+[class] >> java.lang.String$CaseInsensitiveComparator
+[class] >> java.lang.StringCoding$1
+[class] >> java.lang.StringCoding$.Result
+[class] >> java.lang.StringCoding$Result
+[class] >> java.lang.StringCoding$StringDecoder
+[class] >> java.lang.StringCoding$StringEncoder
+[class] >> java.lang.StringLatin1$CharsSpliterator
+[class] >> java.util.Spliterator
+[class] >> java.util.Spliterator$.OfInt
+[class] >> java.lang.StringLatin1$LinesSpliterator
+[class] >> java.lang.StringUTF16$CharsSpliterator
+[class] >> java.lang.StringUTF16$CodePointsSpliterator
+[class] >> java.lang.StringUTF16$LinesSpliterator
+[class] >> java.lang.System$1
+[class] >> java.lang.System$2
+[class] >> jdk.internal.access.JavaLangAccess
+[class] >> java.lang.System$Logger$Level
+[class] >> java.lang.System$.Logger
+[class] >> java.lang.System$.Logger$.Level
+[class] >> java.lang.System$Logger
+[class] >> java.lang.System$LoggerFinder
+[class] >> java.lang.Terminator$1
+[class] >> jdk.internal.misc.Signal
+[class] >> jdk.internal.misc.Signal$.Handler
+[class] >> java.lang.Thread$1
+[class] >> java.lang.Thread$Caches
+[class] >> java.lang.Thread$State
+[class] >> java.lang.Thread$.State
+[class] >> java.lang.Thread$UncaughtExceptionHandler
+[class] >> java.lang.Thread$WeakClassKey
+[class] >> java.lang.ThreadLocal$SuppliedThreadLocal
+[class] >> java.lang.ThreadLocal$ThreadLocalMap$Entry
+[class] >> java.lang.ThreadLocal$ThreadLocalMap
+[class] >> java.lang.Throwable$PrintStreamOrWriter
+[class] >> java.lang.Throwable$SentinelHolder
+[class] >> java.lang.Throwable$WrappedPrintStream
+[class] >> java.lang.Throwable$.PrintStreamOrWriter
+[class] >> java.lang.Throwable$WrappedPrintWriter
+[class] >> java.lang.WeakPairMap$Pair$Lookup
+[class] >> java.lang.WeakPairMap$Pair$Weak$1
+error while loading WeakPairMap$Pair$Weak$1,
+class file /modules/java.base/java/lang/WeakPairMap$Pair$Weak$1.class is broken, reading aborted with class java.util.NoSuchElementException
+key not found: K2
+[class] >> java.lang.WeakPairMap$Pair$Weak
+[class] >> java.lang.WeakPairMap$Pair
+[class] >> java.lang.WeakPairMap$WeakRefPeer
+<== collecting type members for java.lang = List()
+[class] >> scala.util.package
+[class] >> scala.runtime.RichShort
+[class] >> scala.Short
+[class] >> scala.runtime.ScalaWholeNumberProxy
+[class] >> scala.runtime.RichByte
+[class] >> scala.Byte
+[class] >> scala.runtime.RichBoolean
+[class] >> scala.runtime.OrderedProxy
+[class] >> scala.runtime.RichChar
+[class] >> scala.Char
+[class] >> scala.runtime.IntegralProxy
+[class] >> scala.collection.mutable.ArraySeq
+[class] >> scala.collection.StrictOptimizedClassTagSeqFactory
+[class] >> scala.collection.ClassTagSeqFactory
+[class] >> scala.collection.ClassTagIterableFactory
+[class] >> scala.reflect.ClassTag
+[class] >> scala.collection.EvidenceIterableFactory
+[class] >> scala.runtime.RichInt
+[class] >> scala.runtime.ScalaNumberProxy
+[class] >> scala.runtime.RangedProxy
+[class] >> scala.Float
+[class] >> scala.collection.mutable.AbstractSeq
+[class] >> scala.collection.mutable.IndexedSeq
+[class] >> scala.collection.mutable.IndexedSeqOps
+[class] >> scala.Long
+[class] >> scala.Double
+[class] >> scala.collection.immutable.WrappedString
+[class] >> scala.collection.immutable.IndexedSeqOps
+[class] >> scala.runtime.RichFloat
+[class] >> scala.runtime.FractionalProxy
+[class] >> scala.runtime.RichDouble
+[class] >> scala.collection.IndexedSeq
+[class] >> scala.runtime.RichLong
+[class] >> scala.collection.ArrayOps
+[class] >> scala.collection.StringOps
+[class] >> java.util.regex.PatternSyntaxException
+[class] >> scala.collection.mutable.Seq
+[class] >> scala.collection.mutable.Iterable
+[class] >> scala.collection.mutable.SeqOps
+[class] >> scala.collection.mutable.Cloneable
+[class] >> scala.collection.IndexedSeqOps
+[class] >> scala.reflect.ClassManifestDeprecatedApis
+[class] >> scala.runtime.Tuple2Zipped
+[class] >> scala.runtime.ZippedIterable2
+[class] >> scala.runtime.Tuple3Zipped
+[class] >> scala.runtime.ZippedIterable3
+[class] >> scala.Tuple3
+[class] >> scala.Product3
+[class] >> scala.deriving.Mirror
+[class] >> scala.unchecked
+[class] >> java.lang.invoke.TypeDescriptor$.OfField
+1 error found
+[error] Nonzero exit code returned from runner: 1
+[error] (scala3-compiler / Compile / runMain) Nonzero exit code returned from runner: 1
+[error] Total time: 3 s, completed May 25, 2021, 12:03:24 PM
+#+end_example

@@ -1,0 +1,34 @@
+#+name: ino
+#+begin_src elisp :cache yes
+  "weak-pair-map-classfile"
+#+end_src
+
+#+RESULTS[8d7d0007abc874c7b7d4aa834ce8bd4d46d79857]: ino
+: weak-pair-map
+
+* Preamble
+
+  #+begin_src elisp :var ino=ino :results silent
+    (write-file (concat ino "-description.org"))
+  #+end_src
+
+  #+begin_src elisp :var ino=ino :results silent
+    (find-file (concat ino ".scala"))
+  #+end_src
+
+  #+begin_src elisp :var ino=ino :results silent
+    (save-excursion
+      (beginning-of-buffer)
+      (while (re-search-forward (rx "$" "ISSUE$") nil t)
+        (replace-match ino t t)))
+  #+end_src
+
+* $ISSUE$
+
+#+begin_src scala :tangle $ISSUE$.scala
+#+end_src
+
+#+begin_src elisp
+  (sbt/run-until-output "scala3-compiler/compile")
+  (sbt/compile-file-for-output "issue/$ISSUE$.scala")
+#+end_src
