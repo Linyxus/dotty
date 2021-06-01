@@ -118,7 +118,7 @@ trait PatternTypeConstrainer { self: TypeComparer =>
       "{" + (tpMem map { (name, tb) => i"$name $tb" } mkString "; ") + "}"
 
     def constrainTypeMembers(scrutPath: TermRef, scrutTpMem: List[(Name, TypeBounds)], patTpMem: List[(Name, TypeBounds)], maybePatPath: Option[TermRef]): Boolean =
-      trace(i"constrainTypeMembers (${scrutPath.symbol}) @ ${showTpMem(scrutTpMem)} &${maybePatPath.map(x => i" (${x.symbol}) @").getOrElse("")} ${showTpMem(patTpMem)}", gadts, res => s"$res\n${ctx.gadt.debugBoundsDescription}") {
+      trace.force(i"constrainTypeMembers (${scrutPath.symbol}) @ ${showTpMem(scrutTpMem)} &${maybePatPath.map(x => i" (${x.symbol}) @").getOrElse("")} ${showTpMem(patTpMem)}", gadts, res => s"$res\n${ctx.gadt.debugBoundsDescription}") {
         ctx.gadt.addToConstraint(scrut, pat, scrutPath, scrutTpMem, patTpMem, maybePatPath)
       }
 
@@ -187,6 +187,11 @@ trait PatternTypeConstrainer { self: TypeComparer =>
         }
       }
 
+    def clearScrutPath: Boolean = {
+      ctx.gadt.narrowScrutTp_=(null)
+      true
+    }
+
     {
       scrut.dealias match {
         case OrType(scrut1, scrut2) =>
@@ -206,7 +211,7 @@ trait PatternTypeConstrainer { self: TypeComparer =>
             constrainSimplePatternType(pat, scrut) || classesMayBeCompatible && constrainUpcasted(scrut)
         }
       }
-    } && (touchedTypeMembers || tpMemOk)
+    } && (touchedTypeMembers || tpMemOk) && clearScrutPath
   }
 
   /** Constrain "simple" patterns (see `constrainPatternType`).
@@ -275,7 +280,7 @@ trait PatternTypeConstrainer { self: TypeComparer =>
       else widenVariantParams(scrutineeTp)
     val narrowTp = SkolemType(patternTp)
 
-    trace(i"constraining simple pattern type $narrowTp <:< $widePt", gadts, res => s"$res\ngadt = ${ctx.gadt.debugBoundsDescription}") {
+    trace.force(i"constraining simple pattern type $narrowTp <:< $widePt", gadts, res => s"$res\ngadt = ${ctx.gadt.debugBoundsDescription}") {
       isSubType(narrowTp, widePt)
     }
   }

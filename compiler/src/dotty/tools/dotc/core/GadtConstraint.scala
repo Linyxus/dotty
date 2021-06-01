@@ -262,7 +262,7 @@ final class ProperGadtConstraint private(
 
     // The replaced symbols are picked up here.
     addToConstraint(poly1, tvars)
-      .showing(i"added to constraint: [$poly1] $params%, %\n$debugBoundsDescription", gadts)
+      .showing(i"*** added to constraint: [$poly1] $params%, %\n$debugBoundsDescription")
   }
 
   private def tvarOfType(tp: Type)(using Context): TypeVar = tp match {
@@ -490,6 +490,7 @@ final class ProperGadtConstraint private(
   }
 
   private def addBound(tvar: TypeVar, bound: Type, isUpper: Boolean)(using Context): Boolean = {
+    println(i"*** adding type bound for $tvar, bound = $bound, isUpper = $isUpper")
     val symTvar: TypeVar = stripInternalTypeVar(tvar) match {
       case tv: TypeVar => tv
       case inst =>

@@ -527,6 +527,7 @@ trait ConstraintHandling {
    *  way isSubType is organized.
    */
   protected def addConstraint(param: TypeParamRef, bound: Type, fromBelow: Boolean)(using Context): Boolean =
+    println(i"*** adding constraint for $param, bound = $bound, fromBelow = $fromBelow")
     if !bound.isValueTypeOrLambda then return false
 
     /** When comparing lambdas we might get constraints such as

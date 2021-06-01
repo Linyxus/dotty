@@ -1275,11 +1275,15 @@ trait Applications extends Compatibility {
             // We ignore whether constraining the pattern succeeded.
             // Constraining only fails if the pattern cannot possibly match,
             // but useless pattern checks detect more such cases, so we simply rely on them instead.
+            println(i"chk1: unapplyArgType = $unapplyArgType, constraint = ${ctx.typerState.constraint}")
             println("*** Applications : calling constrainPatternType")
             withMode(Mode.GadtConstraintInference)(TypeComparer.constrainPatternType(unapplyArgType, selType))
+            println(i"chk2: unapplyArgType = $unapplyArgType, constraint = ${ctx.typerState.constraint}")
             val patternBound = maximizeType(unapplyArgType, tree.span, fromScala2x)
+            println(i"chk3: unapplyArgType = $unapplyArgType, patternBound = $patternBound constraint = ${ctx.typerState.constraint}")
             if (patternBound.nonEmpty) unapplyFn = addBinders(unapplyFn, patternBound)
-            unapp.println(i"case 2 $unapplyArgType ${ctx.typerState.constraint}")
+            println(i"chk4: unapplyArgType = $unapplyArgType, constraint = ${ctx.typerState.constraint}")
+            println(i"case 2 $unapplyArgType ${ctx.typerState.constraint}")
             unapplyArgType
           }
         println(i"*** ownType = ${ownType}")
@@ -1312,7 +1316,9 @@ trait Applications extends Compatibility {
           argTypes = argTypes.take(args.length) ++
             List.fill(argTypes.length - args.length)(WildcardType)
         }
+        println(i">>> computing unapply patterns, argTypes = $argTypes")
         val unapplyPatterns = bunchedArgs.lazyZip(argTypes) map (typed(_, _))
+        println("<<< computed unapply patterns")
         val result = assignType(cpy.UnApply(tree)(unapplyFn, unapplyImplicits(unapplyApp), unapplyPatterns), ownType)
         unapp.println(s"unapply patterns = $unapplyPatterns")
         if ((ownType eq selType) || ownType.isError) result

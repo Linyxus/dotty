@@ -854,6 +854,7 @@ class Typer extends Namer
       def handlePattern: Tree = {
         val tpt1 = typedTpt
         if !ctx.isAfterTyper && pt != defn.ImplicitScrutineeTypeRef then
+          println("*** typedTyped : calling constrainPatternType")
           withMode(Mode.GadtConstraintInference) {
             TypeComparer.constrainPatternType(tpt1.tpe, pt)
           }
@@ -1595,11 +1596,15 @@ class Typer extends Namer
       assignType(cpy.CaseDef(tree)(pat1, guard1, body1), pat1, body1)
     }
 
+    println(s"*** typedCase : narrow scrutinee type = ${sel.tpe}")
+    println(s"*** typedCase : pattern tree = ${tree.pat}")
     tree.pat match {
       // Only record scrutinee path if the pattern is a Bind or an Ident.
       case _: Trees.Typed[_] =>
         gadtCtx.gadt.narrowScrutTp_=(sel.tpe)
       case _: Trees.Ident[_] =>
+        gadtCtx.gadt.narrowScrutTp_=(sel.tpe)
+      case _: Trees.Apply[_] =>
         gadtCtx.gadt.narrowScrutTp_=(sel.tpe)
       case _ =>
         gadtCtx.gadt.narrowScrutTp_=(null)
@@ -3808,6 +3813,7 @@ class Typer extends Namer
     tree match
       case _: RefTree | _: Literal
       if !isVarPattern(tree) && !(pt <:< tree.tpe) =>
+        println("*** checkEqualityEvidence : calling constrainPatternType")
         withMode(Mode.GadtConstraintInference) {
           TypeComparer.constrainPatternType(tree.tpe, pt)
         }
