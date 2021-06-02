@@ -47,6 +47,10 @@ sealed abstract class GadtConstraint extends Showable {
   def addToConstraint(syms: List[Symbol])(using Context): Boolean
   def addToConstraint(sym: Symbol)(using Context): Boolean = addToConstraint(sym :: Nil)
 
+
+  def constraint: Constraint
+  def constraint_=(c: Constraint): Unit
+
   /** Add type members to constraint.
     */
   def addToConstraint(scrut: Type, pat: Type, scrutPath: TermRef, scrutTpMems: List[(Name, TypeBounds)], patTpMems: List[(Name, TypeBounds)], maybePatPath: Option[TermRef] = None)(using Context): Boolean
@@ -354,7 +358,11 @@ final class ProperGadtConstraint private(
       tv
     }
 
-    if addToConstraint(poly1, tvars) then
+    def addingConstraint: Boolean =
+      addToConstraint(poly1, tvars)
+        .showing(i"added to constraint [$poly1] $tvars")
+
+    if addingConstraint then
       res
     else
       null
@@ -670,8 +678,8 @@ final class ProperGadtConstraint private(
 
   // ---- Protected/internal -----------------------------------------------
 
-  override protected def constraint = myConstraint
-  override protected def constraint_=(c: Constraint) = myConstraint = c
+  override def constraint = myConstraint
+  override def constraint_=(c: Constraint): Unit = myConstraint = c
 
   override protected def isSub(tp1: Type, tp2: Type)(using Context): Boolean = TypeComparer.isSubType(tp1, tp2)
   override protected def isSame(tp1: Type, tp2: Type)(using Context): Boolean = TypeComparer.isSameType(tp1, tp2)
@@ -813,4 +821,7 @@ final class ProperGadtConstraint private(
   override def debugBoundsDescription(using Context): String = "EmptyGadtConstraint"
 
   override def toText(printer: Printer): Texts.Text = "EmptyGadtConstraint"
+
+  override def constraint: Constraint = null
+  override def constraint_=(c: Constraint): Unit = ()
 }

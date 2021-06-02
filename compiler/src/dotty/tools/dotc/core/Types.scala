@@ -4400,6 +4400,14 @@ object Types {
       if ((ctx.typerState eq owningState.get) && !TypeComparer.subtypeCheckInProgress)
         inst = tp
       ctx.typerState.constraint = ctx.typerState.constraint.replace(origin, tp)
+      // ctx.gadt.constraint match {
+      //   case null =>
+      //   case c =>
+      //     println(i"we may replace constraint here $origin -> $tp from:")
+      //     println(c.show)
+      //     val c1 = c.replace(origin, tp)
+      //     println(i"to:\n$c1")
+      // }
       tp
     }
 
