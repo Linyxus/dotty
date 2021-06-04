@@ -89,6 +89,8 @@ sealed abstract class GadtConstraint extends Showable {
   /** Is the named type registered in the constraint? Properly handles both type parameters and path-dependent types. */
   def contains(nt: NamedType, internalizing: Boolean)(using Context): Boolean
 
+  def substTypeParamRef(orig: TypeParamRef, createdSym: Symbol)(using Context): Unit
+
   def isEmpty: Boolean
   final def nonEmpty: Boolean = !isEmpty
 
@@ -218,6 +220,23 @@ final class ProperGadtConstraint private(
     }
 
     checkSubsumes(extractConstraint(left), extractConstraint(right), extractConstraint(pre))
+  }
+
+  override def substTypeParamRef(orig: TypeParamRef, createdSym: Symbol)(using Context): Unit = {
+    println(i"GADT : substituting $orig -> $createdSym")
+    mapping(createdSym) match {
+      case null =>
+        println("GADT : corresponding tpr is null")
+      case created =>
+        println(i"GADT : substituting $orig -> $created")
+        println(i"GADT : updating bounds")
+        myConstraint.domainParams map { tpr =>
+          val tb = myConstraint.entry(tpr)
+          val tb1 = tb.substParam(orig, created)
+          println(i"$tpr : $tb ->> $tb1")
+          myConstraint = myConstraint.updateEntry(tpr, tb1)
+        }
+    }
   }
 
   override def addToConstraint(params: List[Symbol])(using Context): Boolean = {
@@ -710,10 +729,12 @@ final class ProperGadtConstraint private(
 
   private def externalize(param: TypeParamRef)(using Context): Type =
     reverseMapping(param) match {
-      case sym: Symbol => sym.typeRef
+      case sym: Symbol =>
+        sym.typeRef
       case null => reverseTpmMapping(param) match {
         case tp: TypeRef => tp
-        case null => param
+        case null =>
+          param
       }
     }
 
@@ -824,4 +845,6 @@ final class ProperGadtConstraint private(
 
   override def constraint: Constraint = null
   override def constraint_=(c: Constraint): Unit = ()
+
+  override def substTypeParamRef(orig: TypeParamRef, createdSym: Symbol)(using Context): Unit = ()
 }

@@ -420,11 +420,6 @@ object Inferencing {
       boundSym
     }
 
-    println(i"*** inferencing : mapping between created symbol and original symbol")
-    patternBindings map { (boundSym, origParam) =>
-      println(i"$boundSym <-> $origParam")
-    }
-
     println(i"*** inferencing : adding newly created symbols $res")
     for sym <- res do {
       println(i"$sym : ${sym.info.bounds}")
@@ -433,6 +428,15 @@ object Inferencing {
     // We add the created symbols to GADT constraint here.
     println(s"*** before adding to constraint: ${ctx.gadt.debugBoundsDescription}")
     if (res.nonEmpty) ctx.gadt.addToConstraint(res)
+
+    println(i"*** inferencing : mapping between created symbol and original symbol")
+    patternBindings map { (boundSym, origParam) =>
+      println(i"$boundSym <-> $origParam")
+      ctx.gadt.substTypeParamRef(origParam, boundSym)
+    }
+    println(i"*** Inferencing : After substituting type params")
+    println(ctx.gadt.debugBoundsDescription)
+
     res
   }
 
