@@ -490,7 +490,7 @@ trait ConstraintHandling {
   def addToConstraint(tl: TypeLambda, tvars: List[TypeVar])(using Context): Boolean =
     checkPropagated(i"initialized $tl") {
       constraint = constraint.add(tl, tvars)
-      tl.paramRefs.forall { param =>
+      def propagateBounds = tl.paramRefs.forall { param =>
         val lower = constraint.lower(param)
         val upper = constraint.upper(param)
         constraint.entry(param) match {
@@ -510,6 +510,23 @@ trait ConstraintHandling {
               upper.forall(addOneBound(_, x, isUpper = false))
         }
       }
+
+      def unifyParams: Boolean = {
+        var pairs: List[(TypeParamRef, TypeParamRef)] = Nil
+        for
+          tvar1 <- tvars
+          tvar2 <- tvars
+          if tvar1 != tvar2
+        do {
+          val tpr1 = tvar1.origin
+          val tpr2 = tvar2.origin
+          if constraint.isLess(tpr1, tpr2) && constraint.isLess(tpr2, tpr1) && !pairs.contains(tpr2 -> tpr1) then
+            pairs = (tpr1 -> tpr2) :: pairs
+        }
+        pairs forall { (tpr1, tpr2) => unify(tpr1, tpr2) }
+      }
+
+      propagateBounds && unifyParams
     }
 
   /** Can `param` be constrained with new bounds? */
