@@ -668,7 +668,7 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
         val deps =
           for {
             param <- domainParams
-            ups = minUpper(param)
+            ups = upper(param)
             if ups.nonEmpty
           }
           yield
