@@ -44,7 +44,6 @@
   (sbt/compile-file-for-output "issues/duplicated-orderings.scala")
 #+end_src
 
-#+RESULTS:
 #+begin_example
 [info] running (fork) dotty.tools.dotc.Main -classpath /Users/linyxus/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.13.6/scala-library-2.13.6.jar:/Users/linyxus/Develop/dotty/library/../out/bootstrap/scala3-library-bootstrapped/scala-3.0.2-RC1-bin-SNAPSHOT-nonbootstrapped/scala3-library_3-3.0.2-RC1-bin-SNAPSHOT.jar -color:never issues/duplicated-orderings.scala
 ==> constraining simple pattern type Expr[D] >:< Expr[A]?
