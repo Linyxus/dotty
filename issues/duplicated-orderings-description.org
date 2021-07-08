@@ -1,0 +1,117 @@
+#+name: ino
+#+begin_src elisp :cache yes
+  "duplicated-orderings"
+#+end_src
+
+#+RESULTS[97ac24b16d2f7bc7064a91ac517456e26e32fe66]: ino
+: duplicated-orderings
+
+* Preamble
+
+  #+begin_src elisp :var ino=ino :results silent
+    (write-file (concat ino "-description.org"))
+  #+end_src
+
+  #+begin_src elisp :var ino=ino :results silent
+    (find-file (concat ino ".scala"))
+  #+end_src
+
+  #+begin_src elisp :var ino=ino :results silent
+    (save-excursion
+      (beginning-of-buffer)
+      (while (re-search-forward (rx "$" "ISSUE$") nil t)
+        (replace-match ino t t)))
+  #+end_src
+
+* duplicated-orderings
+
+#+begin_src scala :tangle duplicated-orderings.scala
+  trait Expr[+T]
+  case class Lit[X](x: X) extends Expr[X]
+
+  def foo[B, D, A <: B, C <: D](m1: Expr[D], m2: Expr[C]) = m1 match {
+    case _: Lit[A] =>
+      m2 match {
+        case _: Lit[B] =>
+          ???
+      }
+  }
+#+end_src
+
+#+begin_src elisp
+  (sbt/run-until-output "scala3-compiler/compile")
+  (setq sbt/compile-arguments "-color:never")
+  (sbt/compile-file-for-output "issues/duplicated-orderings.scala")
+#+end_src
+
+#+RESULTS:
+#+begin_example
+[info] running (fork) dotty.tools.dotc.Main -classpath /Users/linyxus/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/org/scala-lang/scala-library/2.13.6/scala-library-2.13.6.jar:/Users/linyxus/Develop/dotty/library/../out/bootstrap/scala3-library-bootstrapped/scala-3.0.2-RC1-bin-SNAPSHOT-nonbootstrapped/scala3-library_3-3.0.2-RC1-bin-SNAPSHOT.jar -color:never issues/duplicated-orderings.scala
+==> constraining simple pattern type Expr[D] >:< Expr[A]?
+<== constraining simple pattern type Expr[D] >:< Expr[A] = true
+gadt = Constraint(
+ uninstantiated variables: B(param)1, D(param)1, A(param)1, C(param)1
+ constrained types: [B(param)1, D(param)1, A(param)1 <: B(param)1, C(param)1 <: D(param)1] => Any
+ bounds: 
+     B(param)1
+     D(param)1
+     A(param)1
+     C(param)1
+ ordering: 
+     A(param)1 <: D(param)1, B(param)1
+     C(param)1 <: D(param)1
+)
+type B:  >: A
+type D:  >: A | C
+type A:  <: D & B
+type C:  <: D
+
+==> constraining simple pattern type Expr[C] >:< Expr[B]?
+<== constraining simple pattern type Expr[C] >:< Expr[B] = true
+gadt = Constraint(
+ uninstantiated variables: B(param)1, D(param)1, A(param)1, C(param)1
+ constrained types: [B(param)1, D(param)1, A(param)1 <: B(param)1, C(param)1 <: D(param)1] => Any
+ bounds: 
+     B(param)1
+     D(param)1
+     A(param)1
+     C(param)1
+ ordering: 
+     B(param)1 <: C(param)1, D(param)1
+     A(param)1 <: C(param)1, D(param)1, D(param)1, B(param)1
+     C(param)1 <: D(param)1
+)
+type B:  >: A <: C
+type D:  >: C
+type A:  <: B
+type C:  >: B <: D
+
+==> constraining simple pattern type Expr[D] >:< Expr[X]?
+<== constraining simple pattern type Expr[D] >:< Expr[X] = true
+gadt = Constraint(
+ uninstantiated variables: 
+ constrained types: 
+ bounds: 
+ ordering: 
+)
+
+-- Warning: issues/duplicated-orderings.scala:5:7 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+5 |  case _: Lit[A] =>
+  |       ^
+  |       the type test for Lit[A] cannot be checked at runtime
+==> constraining simple pattern type Expr[C] >:< Expr[X]?
+<== constraining simple pattern type Expr[C] >:< Expr[X] = true
+gadt = Constraint(
+ uninstantiated variables: 
+ constrained types: 
+ bounds: 
+ ordering: 
+)
+
+-- Warning: issues/duplicated-orderings.scala:7:11 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+7 |      case _: Lit[B] =>
+  |           ^
+  |           the type test for Lit[B] cannot be checked at runtime
+2 warnings found
+[success] Total time: 3 s, completed Jul 8, 2021, 8:28:04 PM
+#+end_example
