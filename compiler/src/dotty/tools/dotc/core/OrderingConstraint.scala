@@ -661,6 +661,13 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
       Text(uninstVars.map(_.toText(printer)), ", ")
     val constrainedText =
       " constrained types: " ~ Text(domainLambdas map (_.toText(printer)), ", ")
+    val stringBoundsText =
+      " bounds (raw): " ~ {
+        val assocs =
+          for (param <- domainParams)
+          yield (" " * indent) ~ param.toText(printer) ~ Str(entry(param).toString)
+        Text(assocs, "\n")
+      }
     val boundsText =
       " bounds: " ~ {
         val assocs =
@@ -682,7 +689,7 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
         Text(deps, "\n")
       }
     //Printer.debugPrintUnique = false
-    Text.lines(List(uninstVarsText, constrainedText, boundsText, orderingText))
+    Text.lines(List(uninstVarsText, constrainedText, stringBoundsText, boundsText, orderingText))
 
   override def toText(printer: Printer): Text =
     Text.lines(List("Constraint(", contentsToText(printer), ")"))

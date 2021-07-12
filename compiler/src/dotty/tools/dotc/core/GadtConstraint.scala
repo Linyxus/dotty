@@ -343,7 +343,10 @@ final class ProperGadtConstraint private(
               )
           }
         }
-        processBounds(tb)
+        val tb1 = processBounds(tb)
+        println(i"*** processing bounds for $name : $tb -> ${tb1.toString}")
+
+        tb1
       },
       pt => defn.AnyType
     )
@@ -355,6 +358,8 @@ final class ProperGadtConstraint private(
     }
 
     if addToConstraint(poly1, tvars) then
+      println("*** type variable internalized, type lambda added")
+      println(constraint.show)
       res
     else
       null
@@ -490,6 +495,8 @@ final class ProperGadtConstraint private(
   }
 
   private def addBound(tvar: TypeVar, bound: Type, isUpper: Boolean)(using Context): Boolean = {
+    println(i"===== Before addBound($tvar, $bound, $isUpper) ===")
+    println(constraint.show)
     val symTvar: TypeVar = stripInternalTypeVar(tvar) match {
       case tv: TypeVar => tv
       case inst =>
@@ -503,8 +510,8 @@ final class ProperGadtConstraint private(
         if (ntTvar ne null) stripInternalTypeVar(ntTvar) else bound
       case _ => bound
     }
-    (
-      internalizedBound match {
+    {
+      val res = internalizedBound match {
         case boundTvar: TypeVar =>
           if (boundTvar eq symTvar) true
           else if (isUpper) addLess(symTvar.origin, boundTvar.origin)
@@ -512,7 +519,11 @@ final class ProperGadtConstraint private(
         case bound =>
           addBoundTransitively(symTvar.origin, bound, isUpper)
       }
-    ).showing({
+      println(i"===== After addBound($tvar, $bound, $isUpper) ===")
+      println(constraint.show)
+
+      res
+    }.showing({
       val descr = if (isUpper) "upper" else "lower"
       val op = if (isUpper) "<:" else ">:"
       i"adding $descr bound $tvar $op $bound = $result"

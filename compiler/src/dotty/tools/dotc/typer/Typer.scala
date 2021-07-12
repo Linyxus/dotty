@@ -1599,6 +1599,8 @@ class Typer extends Namer
         gadtCtx.gadt.narrowScrutTp_=(sel.tpe)
       case _: Trees.Ident[_] =>
         gadtCtx.gadt.narrowScrutTp_=(sel.tpe)
+      case _: Trees.Apply[_] =>
+        gadtCtx.gadt.narrowScrutTp_=(sel.tpe)
       case _ =>
         gadtCtx.gadt.narrowScrutTp_=(null)
     }
