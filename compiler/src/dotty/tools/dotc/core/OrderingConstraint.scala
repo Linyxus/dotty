@@ -665,7 +665,7 @@ class OrderingConstraint(private val boundsMap: ParamBounds,
       " bounds (raw): " ~ {
         val assocs =
           for (param <- domainParams)
-          yield (" " * indent) ~ param.toText(printer) ~ Str(entry(param).toString)
+          yield (" " * indent) ~ param.toText(printer) ~ Str(" : ") ~ Str(entry(param).toString)
         Text(assocs, "\n")
       }
     val boundsText =

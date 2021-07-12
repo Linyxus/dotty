@@ -188,13 +188,24 @@ trait ConstraintHandling {
    */
   private def unify(p1: TypeParamRef, p2: TypeParamRef)(using Context): Boolean = {
     constr.println(s"unifying $p1 $p2")
+    println(i"***** unifying $p2 to $p1")
     assert(constraint.isLess(p1, p2))
     val down = constraint.exclusiveLower(p2, p1)
     val up = constraint.exclusiveUpper(p1, p2)
+    println(i"===== Before constraint.unify $p2 -> $p1 =====")
+    println(constraint.show)
     constraint = constraint.unify(p1, p2)
+    println(i"===== After constraint.unify $p2 -> $p1 =====")
+    println(constraint.show)
     val bounds = constraint.nonParamBounds(p1)
     val lo = bounds.lo
     val hi = bounds.hi
+
+    println("***** Will add the following bounds *****")
+    down foreach { p => println(i"$p <: ${hi.toString}") }
+    up foreach { p => println(i"$p >: ${lo.toString}") }
+    println("***** *****")
+
     isSub(lo, hi) &&
     down.forall(addOneBound(_, hi, isUpper = true)) &&
     up.forall(addOneBound(_, lo, isUpper = false))
