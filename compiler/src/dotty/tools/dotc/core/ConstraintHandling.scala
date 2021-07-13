@@ -79,6 +79,7 @@ trait ConstraintHandling {
     nonParamBounds(param).derivedTypeBounds(fullLowerBound(param), fullUpperBound(param))
 
   protected def addOneBound(param: TypeParamRef, bound: Type, isUpper: Boolean)(using Context): Boolean =
+    println(i"***** addOneBound($param, ${bound.toString}, $isUpper) *****")
     if !constraint.contains(param) then true
     else if !isUpper && param.occursIn(bound) then
       // We don't allow recursive lower bounds when defining a type,
@@ -86,7 +87,11 @@ trait ConstraintHandling {
       false
     else
       val oldBounds @ TypeBounds(lo, hi) = constraint.nonParamBounds(param)
+      println("===== oldBounds =====")
+      println(s"lo = ${lo.show} $lo")
+      println(s"hi = ${hi.show} $hi")
       val equalBounds = (if isUpper then lo else hi) eq bound
+      println(i"***** equalBounds = $equalBounds *****")
       if equalBounds
         && !bound.existsPart(bp => bp.isInstanceOf[WildcardType] || (bp eq param))
       then
@@ -94,7 +99,11 @@ trait ConstraintHandling {
         // so we can remove `param` from the constraint.
         // (Handling wildcards requires choosing a bound, but we don't know which
         // bound to choose here, this is handled in `ConstraintHandling#approximation`)
+        println(i"===== Before constraint.replace($param, $bound) =====")
+        println(constraint.show)
         constraint = constraint.replace(param, bound)
+        println(i"===== After constraint.replace($param, $bound) =====")
+        println(constraint.show)
         true
       else
         // Narrow one of the bounds of type parameter `param`
@@ -201,14 +210,23 @@ trait ConstraintHandling {
     val lo = bounds.lo
     val hi = bounds.hi
 
-    println("***** Will add the following bounds *****")
-    down foreach { p => println(i"$p <: ${hi.toString}") }
-    up foreach { p => println(i"$p >: ${lo.toString}") }
-    println("***** *****")
+    def upperBounds: Boolean = down forall { p =>
+      val res = addOneBound(p, hi, isUpper = true)
+      println(i"===== After adding $p <: $hi ===")
+      println(constraint.show)
+      res
+    }
+
+    def lowerBounds: Boolean = up forall { p =>
+      val res = addOneBound(p, lo, isUpper = false)
+      println(i"===== After adding $p >: $lo ===")
+      println(constraint.show)
+      res
+    }
 
     isSub(lo, hi) &&
-    down.forall(addOneBound(_, hi, isUpper = true)) &&
-    up.forall(addOneBound(_, lo, isUpper = false))
+      upperBounds &&
+      lowerBounds
   }
 
   protected def isSubType(tp1: Type, tp2: Type, whenFrozen: Boolean)(using Context): Boolean =
